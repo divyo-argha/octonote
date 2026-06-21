@@ -8,6 +8,14 @@ const fs   = require('fs');
 
 const BINARY_DIR = path.join(__dirname, '..', 'bin', 'binaries');
 
+const version = require('../package.json').version;
+
+if (process.argv.includes('-v') || process.argv.includes('--version')) {
+  console.log(`octonote-gui v${version}`);
+  process.exit(0);
+}
+
+
 function getPlatformBinary() {
   const platform = process.platform;
   const arch     = process.arch;

@@ -1112,7 +1112,25 @@ func deleteLastWord(s string) string {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
+var version = "1.1.0"
+
 func main() {
+	if len(os.Args) > 1 {
+		arg := os.Args[1]
+		if arg == "-v" || arg == "--version" || arg == "-version" {
+			fmt.Printf("octonote v%s\n", version)
+			os.Exit(0)
+		}
+		if arg == "-h" || arg == "--help" || arg == "-help" {
+			fmt.Printf("octonote v%s - Lightweight multi-tab auto-saving terminal scratchpad\n\n", version)
+			fmt.Println("Usage:")
+			fmt.Println("  octonote                   Open the scratchpad")
+			fmt.Println("  octonote -v, --version     Print the version")
+			fmt.Println("  octonote -h, --help        Show this help message")
+			os.Exit(0)
+		}
+	}
+
 	s, err := core.NewStorage()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "octonote: %v\n", err)
@@ -1133,3 +1151,4 @@ func main() {
 		os.Exit(1)
 	}
 }
+
