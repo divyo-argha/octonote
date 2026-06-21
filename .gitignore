@@ -1,0 +1,20 @@
+# Compiled binaries
+octonote
+octonote-tui
+
+# Go build outputs
+*.exe
+*.test
+*.prof
+
+# Wails build output
+gui/build/
+
+# Node/NPM dependencies and downloaded binaries
+node_modules/
+npm/node_modules/
+npm/bin/binaries/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
