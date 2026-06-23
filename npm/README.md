@@ -101,6 +101,16 @@ Write notes, open multiple tabs, exit anytime, and reopen. Everything is exactly
 
 ---
 
+## 🛠️ Command Flags
+
+| Flag | Action |
+|---|---|
+| `-v`, `--version` | Print the installed version of octoNote |
+| `--update` | Check for updates (or prompt to update npm/standalone versions) |
+| `-h`, `--help` | Show CLI usage help message |
+
+---
+
 ## 🏆 Why octoNote?
 
 | Feature | octoNote | `nano` / `vim` | standard Notes App |
