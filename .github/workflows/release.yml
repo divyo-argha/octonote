@@ -58,17 +58,16 @@ jobs:
           if [ "${{ matrix.build.os }}" = "macos-latest" ]; then
             cp gui/build/bin/octoNote.app/Contents/MacOS/octoNote dist/octonote-gui-darwin || cp gui/build/bin/octonote dist/octonote-gui-darwin
           elif [ "${{ matrix.build.os }}" = "windows-latest" ]; then
-            cp gui/build/bin/octonote.exe dist/octonote-gui-windows-amd64.exe
+            cp gui/build/bin/octonote.exe dist/octonote-gui-windows.exe
           else
-            cp gui/build/bin/octonote dist/octonote-gui-linux-amd64
+            cp gui/build/bin/octonote dist/octonote-gui-linux
           fi
 
-      - name: Upload GUI Binary to Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload GUI Binary as Artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: dist/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ matrix.build.name }}
+          path: dist/*
 
   build-cli:
     runs-on: ubuntu-latest
@@ -95,19 +94,31 @@ jobs:
           # Windows amd64
           GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/octonote-windows-amd64.exe ./tui
 
-      - name: Release CLI Binaries
-        uses: softprops/action-gh-release@v2
+      - name: Upload CLI Binaries as Artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: dist/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: octonote-cli
+          path: dist/*
 
-  publish-npm:
+  publish-release-and-npm:
     needs: [build-gui, build-cli]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

@@ -11,18 +11,12 @@ const REPO_NAME = 'octonote';
 const GITHUB_BASE = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/v${VERSION}`;
 
 const PACKAGES = {
-  // CLI packages
-  '@divyo-argha/octonote-darwin-arm64': { os: 'darwin', cpu: 'arm64', isGui: false, releaseAsset: 'octonote-darwin-arm64' },
-  '@divyo-argha/octonote-darwin-x64':   { os: 'darwin', cpu: 'x64',   isGui: false, releaseAsset: 'octonote-darwin-amd64' },
-  '@divyo-argha/octonote-linux-arm64':  { os: 'linux',  cpu: 'arm64', isGui: false, releaseAsset: 'octonote-linux-arm64' },
-  '@divyo-argha/octonote-linux-x64':    { os: 'linux',  cpu: 'x64',   isGui: false, releaseAsset: 'octonote-linux-amd64' },
-  '@divyo-argha/octonote-windows-x64':  { os: 'win32',  cpu: 'x64',   isGui: false, releaseAsset: 'octonote-windows-amd64.exe' },
-  
-  // GUI packages
-  '@divyo-argha/octonote-gui-darwin-arm64': { os: 'darwin', cpu: 'arm64', isGui: true, releaseAsset: 'octonote-gui-darwin' },
-  '@divyo-argha/octonote-gui-darwin-x64':   { os: 'darwin', cpu: 'x64',   isGui: true, releaseAsset: 'octonote-gui-darwin' },
-  '@divyo-argha/octonote-gui-linux-x64':    { os: 'linux',  cpu: 'x64',   isGui: true, releaseAsset: 'octonote-gui-linux-amd64' },
-  '@divyo-argha/octonote-gui-windows-x64':  { os: 'win32',  cpu: 'x64',   isGui: true, releaseAsset: 'octonote-gui-windows-amd64.exe' }
+  // CLI packages only
+  '@divyo-argha/octonote-darwin-arm64': { os: 'darwin', cpu: 'arm64', releaseAsset: 'octonote-darwin-arm64' },
+  '@divyo-argha/octonote-darwin-x64':   { os: 'darwin', cpu: 'x64',   releaseAsset: 'octonote-darwin-amd64' },
+  '@divyo-argha/octonote-linux-arm64':  { os: 'linux',  cpu: 'arm64', releaseAsset: 'octonote-linux-arm64' },
+  '@divyo-argha/octonote-linux-x64':    { os: 'linux',  cpu: 'x64',   releaseAsset: 'octonote-linux-amd64' },
+  '@divyo-argha/octonote-windows-x64':  { os: 'win32',  cpu: 'x64',   releaseAsset: 'octonote-windows-amd64.exe' }
 };
 
 function followRedirects(url) {
@@ -61,9 +55,11 @@ async function main() {
   const buildDir = path.join(__dirname, '..', 'build');
   if (!fs.existsSync(buildDir)) fs.mkdirSync(buildDir);
 
+  const localDistDir = path.join(__dirname, '..', '..', 'dist');
+
   for (const [pkgName, info] of Object.entries(PACKAGES)) {
     const isWindows = info.os === 'win32';
-    const baseName = info.isGui ? 'octonote-gui' : 'octonote';
+    const baseName = 'octonote';
     const pkgDir = path.join(buildDir, pkgName.replace('@', '').replace('/', '-'));
     
     console.log(`Processing ${pkgName}...`);
@@ -74,9 +70,16 @@ async function main() {
     const destPath = path.join(pkgDir, binName);
     
     try {
-      const downloadUrl = `${GITHUB_BASE}/${info.releaseAsset}`;
-      console.log(`  Downloading ${downloadUrl}...`);
-      await download(downloadUrl, destPath);
+      const localFilePath = path.join(localDistDir, info.releaseAsset);
+      if (fs.existsSync(localFilePath)) {
+        console.log(`  Using local binary from ${localFilePath}`);
+        fs.copyFileSync(localFilePath, destPath);
+      } else {
+        const downloadUrl = `${GITHUB_BASE}/${info.releaseAsset}`;
+        console.log(`  Downloading ${downloadUrl}...`);
+        await download(downloadUrl, destPath);
+      }
+      
       if (!isWindows) fs.chmodSync(destPath, 0o755);
       
       const pkgJson = {
