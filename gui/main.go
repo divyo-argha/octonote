@@ -83,6 +83,19 @@ func (a *App) startup(ctx context.Context) {
 		}
 	}
 	a.state = st
+
+	// Watch state.json for external modifications and push updates to the UI
+	go a.storage.Watch(ctx, func() {
+		a.mu.Lock()
+		newSt, err := a.storage.Load()
+		if err == nil {
+			a.state = newSt
+			a.mu.Unlock()
+			a.emitStateChange()
+		} else {
+			a.mu.Unlock()
+		}
+	})
 }
 
 func (a *App) shutdown(_ context.Context) {

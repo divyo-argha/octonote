@@ -126,6 +126,7 @@ var (
 // ── Messages ──────────────────────────────────────────────────────────────────
 
 type savedMsg struct{ at time.Time }
+type externalStateUpdateMsg struct{}
 
 type shareDoneMsg struct{}
 type shareCodeMsg struct{ code string }
@@ -423,6 +424,38 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m = m.resizeTextAreas()
+
+	case externalStateUpdateMsg:
+		st, err := m.storage.Load()
+		if err == nil {
+			m.state = st
+			tas := make([]textarea.Model, len(m.state.Tabs))
+			for i, tab := range m.state.Tabs {
+				tas[i] = newTextArea()
+				tas[i].SetValue(tab.Body)
+				
+				// Restore cursor to the start of the saved cursor line
+				lines := strings.Split(tab.Body, "\n")
+				pos := 0
+				limit := tab.CursorLine
+				if limit >= len(lines) {
+					limit = len(lines) - 1
+				}
+				if limit < 0 {
+					limit = 0
+				}
+				for l := 0; l < limit; l++ {
+					pos += len(lines[l]) + 1
+				}
+				tas[i].SetCursor(pos)
+			}
+			m.textareas = tas
+			if m.state.ActiveIndex < len(m.textareas) {
+				m.textareas[m.state.ActiveIndex].Focus()
+			}
+			m = m.resizeTextAreas()
+		}
+		return m, nil
 
 	case savedMsg:
 		m.lastSaved = msg.at
@@ -1154,6 +1187,13 @@ func main() {
 
 	m := initialModel(s, st)
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go s.Watch(ctx, func() {
+		p.Send(externalStateUpdateMsg{})
+	})
+
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "octonote: %v\n", err)
 		os.Exit(1)

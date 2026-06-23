@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -27,12 +28,13 @@ type State struct {
 }
 
 type Storage struct {
-	mu      sync.Mutex
-	dir     string
-	file    string
-	ch      chan State
-	lastErr error
-	done    chan struct{}
+	mu            sync.Mutex
+	dir           string
+	file          string
+	ch            chan State
+	lastErr       error
+	done          chan struct{}
+	lastWriteTime time.Time
 }
 
 func StateDir() (string, error) {
@@ -152,6 +154,14 @@ func (s *Storage) atomicWrite(st State) {
 		s.setErr(err)
 		return
 	}
+
+	// Capture the file's exact modTime to avoid reload loops from our own writes.
+	if info, err := os.Stat(s.file); err == nil {
+		s.mu.Lock()
+		s.lastWriteTime = info.ModTime()
+		s.mu.Unlock()
+	}
+
 	s.setErr(nil)
 }
 
@@ -159,6 +169,41 @@ func (s *Storage) setErr(err error) {
 	s.mu.Lock()
 	s.lastErr = err
 	s.mu.Unlock()
+}
+
+// Watch blocks and polls state.json every 500ms. It calls onChange
+// when an external modification is detected (i.e. not written by this process).
+func (s *Storage) Watch(ctx context.Context, onChange func()) {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	var lastMod time.Time
+	if info, err := os.Stat(s.file); err == nil {
+		lastMod = info.ModTime()
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			info, err := os.Stat(s.file)
+			if err != nil {
+				continue
+			}
+			mod := info.ModTime()
+			if mod.After(lastMod) {
+				s.mu.Lock()
+				isOurWrite := !mod.After(s.lastWriteTime)
+				s.mu.Unlock()
+
+				lastMod = mod
+				if !isOurWrite {
+					onChange()
+				}
+			}
+		}
+	}
 }
 
 func defaultState() State {

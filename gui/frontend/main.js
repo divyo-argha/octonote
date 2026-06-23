@@ -526,6 +526,22 @@ window.addEventListener('DOMContentLoaded', () => {
       setTimeout(closeShareModal, 2500);
     });
 
+    // State changed externally (TUI writes, etc.)
+    window.runtime.EventsOn('state:changed', (newSt) => {
+      state = newSt;
+      renderTabs();
+      const tab = state.tabs[state.active_index];
+      if (tab && editor.value !== (tab.body || '')) {
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        editor.value = tab.body || '';
+        try {
+          editor.setSelectionRange(start, end);
+        } catch (_) {}
+      }
+      updateFileStatus();
+    });
+
     // Error on either side
     window.runtime.EventsOn('share:error', (msg) => {
       resetShareModal();
