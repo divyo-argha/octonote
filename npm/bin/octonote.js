@@ -148,6 +148,19 @@ function runCli() {
     execFileSync(binPath, process.argv.slice(2), { stdio: 'inherit' });
   } catch (err) {
     if (err.code === 'MODULE_NOT_FOUND') {
+      const devBinPath = path.resolve(__dirname, '..', '..', binName);
+      if (fs.existsSync(devBinPath)) {
+        try {
+          execFileSync(devBinPath, process.argv.slice(2), { stdio: 'inherit' });
+          return;
+        } catch (execErr) {
+          if (execErr.status !== undefined) {
+            process.exit(execErr.status);
+          }
+          console.error(execErr);
+          process.exit(1);
+        }
+      }
       console.error(`The native binary for your platform (${packageName}) was not installed.`);
       console.error(`Ensure you are using a supported package manager and did not ignore optional dependencies.`);
     } else {

@@ -150,6 +150,11 @@ func (s *Storage) atomicWrite(st State) {
 		s.setErr(err)
 		return
 	}
+
+	s.mu.Lock()
+	s.lastWriteTime = time.Now().Add(5 * time.Second)
+	s.mu.Unlock()
+
 	if err := os.Rename(tmp, s.file); err != nil {
 		s.setErr(err)
 		return

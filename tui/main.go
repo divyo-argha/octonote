@@ -251,6 +251,10 @@ type model struct {
 	dirty    bool
 	quitting bool
 
+	// preview state
+	previewMode      bool
+	previewScrollRow int
+
 	// share state
 	shareMode   shareMode
 	shareCode   string
@@ -345,6 +349,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.shareMode = shareOff
 		m.shareInput = ""
 		m.shareErr = ""
+		m.previewMode = false
 		tas := make([]textarea.Model, len(m.state.Tabs))
 		for i, tab := range m.state.Tabs {
 			tas[i] = newTextArea()
@@ -451,8 +456,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.textareas = tas
 			if m.state.ActiveIndex < len(m.textareas) {
-				m.textareas[m.state.ActiveIndex].Focus()
+				if !m.previewMode {
+					m.textareas[m.state.ActiveIndex].Focus()
+				} else {
+					m.textareas[m.state.ActiveIndex].Blur()
+				}
 			}
+			m = m.clampScroll()
 			m = m.resizeTextAreas()
 		}
 		return m, nil
@@ -644,7 +654,87 @@ func (m model) handleKey(msg tea.KeyMsg, cmds []tea.Cmd) (tea.Model, tea.Cmd) {
 
 	// ── Normal mode ───────────────────────────────────────────────────────────
 
+	if m.previewMode {
+		switch msg.Type {
+		case tea.KeyCtrlP:
+			m.previewMode = false
+			idx := m.state.ActiveIndex
+			if idx < len(m.textareas) {
+				m.textareas[idx].Focus()
+			}
+			return m, nil
+
+		case tea.KeyUp, tea.KeyRunes:
+			if msg.Type == tea.KeyUp || msg.String() == "k" || msg.Type == tea.KeyCtrlY {
+				m.previewScrollRow--
+				m = m.clampScroll()
+				return m, nil
+			}
+			if msg.String() == "j" || msg.Type == tea.KeyCtrlE {
+				m.previewScrollRow++
+				m = m.clampScroll()
+				return m, nil
+			}
+			return m, nil
+
+		case tea.KeyDown:
+			m.previewScrollRow++
+			m = m.clampScroll()
+			return m, nil
+
+		case tea.KeyPgUp:
+			m.previewScrollRow -= m.getContentHeight()
+			m = m.clampScroll()
+			return m, nil
+
+		case tea.KeyPgDown, tea.KeySpace:
+			m.previewScrollRow += m.getContentHeight()
+			m = m.clampScroll()
+			return m, nil
+
+		case tea.KeyHome:
+			m.previewScrollRow = 0
+			return m, nil
+
+		case tea.KeyEnd:
+			m.previewScrollRow = m.getActiveTabLinesCount() - m.getContentHeight()
+			m = m.clampScroll()
+			return m, nil
+
+		case tea.KeyCtrlC:
+			m.syncSaveNow()
+			m.quitting = true
+			return m, tea.Quit
+
+		case tea.KeyCtrlRight, tea.KeyCtrlF, tea.KeyTab:
+			m = m.switchTab((m.state.ActiveIndex + 1) % len(m.state.Tabs))
+			m.previewScrollRow = 0
+			return m, nil
+
+		case tea.KeyCtrlLeft, tea.KeyCtrlB:
+			idx := m.state.ActiveIndex - 1
+			if idx < 0 {
+				idx = len(m.state.Tabs) - 1
+			}
+			m = m.switchTab(idx)
+			m.previewScrollRow = 0
+			return m, nil
+
+		case tea.KeyBackspace, tea.KeyDelete, tea.KeyEnter:
+			return m, nil
+		}
+	}
+
 	switch msg.Type {
+
+	case tea.KeyCtrlP:
+		m.previewMode = true
+		m.previewScrollRow = 0
+		idx := m.state.ActiveIndex
+		if idx < len(m.textareas) {
+			m.textareas[idx].Blur()
+		}
+		return m, nil
 
 	case tea.KeyCtrlC:
 		// Cancel sharing if active; otherwise quit.
@@ -848,20 +938,48 @@ func (m model) renderContent() string {
 	if idx >= len(m.textareas) {
 		return ""
 	}
-	contentH := m.height - 8
-	if contentH < 4 {
-		contentH = 4
-	}
+	contentH := m.getContentHeight()
 	contentW := m.width - 4
 	m.textareas[idx].SetWidth(contentW)
 	m.textareas[idx].SetHeight(contentH)
 
 	var box lipgloss.Style
-	if m.textareas[idx].Focused() {
+	if m.textareas[idx].Focused() || m.previewMode {
 		box = styleContentBox
 	} else {
 		box = styleContentBoxBlur
 	}
+
+	if m.previewMode {
+		markdownText := RenderMarkdown(m.textareas[idx].Value())
+		lines := strings.Split(markdownText, "\n")
+		
+		// Clamp previewScrollRow locally for safe slice indexing
+		linesCount := len(lines)
+		maxScroll := linesCount - contentH
+		if maxScroll < 0 {
+			maxScroll = 0
+		}
+		scrollRow := m.previewScrollRow
+		if scrollRow > maxScroll {
+			scrollRow = maxScroll
+		}
+		if scrollRow < 0 {
+			scrollRow = 0
+		}
+
+		end := scrollRow + contentH
+		if end > len(lines) {
+			end = len(lines)
+		}
+		visibleLines := lines[scrollRow:end]
+		for len(visibleLines) < contentH {
+			visibleLines = append(visibleLines, "")
+		}
+		previewBody := strings.Join(visibleLines, "\n")
+		return box.Width(m.width - 2).Render(previewBody)
+	}
+
 	return box.Width(m.width - 2).Render(m.textareas[idx].View())
 }
 
@@ -950,16 +1068,30 @@ func (m model) renderLegend() string {
 	}
 
 	// Normal legend.
-	shortcuts := []struct{ key, desc string }{
-		{"^N/F5", "new"},
-		{"^X/F4", "close"},
-		{"^O/F3", "open"},
-		{"^S/F2", "save"},
-		{"^T", "share"},
-		{"^R", "receive"},
-		{"^→/←", "switch"},
-		{"Tab", "cycle"},
-		{"^C", "quit"},
+	var shortcuts []struct{ key, desc string }
+	if m.previewMode {
+		shortcuts = []struct{ key, desc string }{
+			{"^P", "edit"},
+			{"↑/↓", "scroll"},
+			{"PgUp/Dn", "page"},
+			{"Home/End", "jump"},
+			{"^→/←", "switch"},
+			{"Tab", "cycle"},
+			{"^C", "quit"},
+		}
+	} else {
+		shortcuts = []struct{ key, desc string }{
+			{"^P", "preview"},
+			{"^N/F5", "new"},
+			{"^X/F4", "close"},
+			{"^O/F3", "open"},
+			{"^S/F2", "save"},
+			{"^T", "share"},
+			{"^R", "receive"},
+			{"^→/←", "switch"},
+			{"Tab", "cycle"},
+			{"^C", "quit"},
+		}
 	}
 	var parts []string
 	for _, s := range shortcuts {
@@ -1026,12 +1158,15 @@ func (m model) switchTab(idx int) model {
 	}
 	m.textareas[m.state.ActiveIndex].Blur()
 	m.state.ActiveIndex = idx
-	m.textareas[idx].Focus()
+	if !m.previewMode {
+		m.textareas[idx].Focus()
+	}
 	m.triggerSave()
 	return m
 }
 
 func (m model) newTab() model {
+	m.previewMode = false
 	title := fmt.Sprintf("tab %d", len(m.state.Tabs)+1)
 	tab := core.NewTab(title)
 	m.state.Tabs = append(m.state.Tabs, tab)
@@ -1044,12 +1179,14 @@ func (m model) newTab() model {
 }
 
 func (m model) closeTab() model {
+	m.previewMode = false
 	if len(m.state.Tabs) <= 1 {
 		m.textareas[0].Reset()
 		m.state.Tabs[0].Body = ""
 		m.state.Tabs[0].FilePath = ""
 		m.state.Tabs[0].FileIsDirty = false
 		m.state.Tabs[0].UpdatedAt = time.Now()
+		m.textareas[0].Focus()
 		return m
 	}
 	idx := m.state.ActiveIndex
@@ -1064,6 +1201,7 @@ func (m model) closeTab() model {
 
 // loadFileIntoTab puts file content into the current tab (if empty/new) or a new tab.
 func (m model) loadFileIntoTab(path, content string) model {
+	m.previewMode = false
 	idx := m.state.ActiveIndex
 	if strings.TrimSpace(m.textareas[idx].Value()) == "" && m.state.Tabs[idx].FilePath == "" {
 		// Reuse current tab.
@@ -1073,6 +1211,7 @@ func (m model) loadFileIntoTab(path, content string) model {
 		m.state.Tabs[idx].FileIsDirty = false
 		m.state.Tabs[idx].UpdatedAt = time.Now()
 		m.textareas[idx].SetValue(content)
+		m.textareas[idx].Focus()
 	} else {
 		// Open in a new tab.
 		tab := core.NewTab(filepath.Base(path))
@@ -1101,6 +1240,38 @@ func (m model) resizeTextAreas() model {
 	for i := range m.textareas {
 		m.textareas[i].SetWidth(contentW)
 		m.textareas[i].SetHeight(contentH)
+	}
+	return m
+}
+
+func (m model) getContentHeight() int {
+	contentH := m.height - 8
+	if contentH < 4 {
+		contentH = 4
+	}
+	return contentH
+}
+
+func (m model) getActiveTabLinesCount() int {
+	idx := m.state.ActiveIndex
+	if idx >= len(m.textareas) {
+		return 0
+	}
+	return len(strings.Split(m.textareas[idx].Value(), "\n"))
+}
+
+func (m model) clampScroll() model {
+	contentH := m.getContentHeight()
+	linesCount := m.getActiveTabLinesCount()
+	maxScroll := linesCount - contentH
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if m.previewScrollRow > maxScroll {
+		m.previewScrollRow = maxScroll
+	}
+	if m.previewScrollRow < 0 {
+		m.previewScrollRow = 0
 	}
 	return m
 }
@@ -1149,7 +1320,7 @@ func deleteLastWord(s string) string {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-var version = "1.2.0"
+var version = "1.3.0"
 
 func main() {
 	if len(os.Args) > 1 {
