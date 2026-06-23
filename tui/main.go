@@ -1112,7 +1112,7 @@ func deleteLastWord(s string) string {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-var version = "1.1.0"
+var version = "1.1.1"
 
 func main() {
 	if len(os.Args) > 1 {
