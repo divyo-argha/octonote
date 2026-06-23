@@ -14,10 +14,10 @@ jobs:
       fail-fast: false
       matrix:
         build:
-          - name: 'octonote-gui-linux'
+          - name: 'octonote-gui-linux-amd64'
             platform: 'linux/amd64'
             os: 'ubuntu-latest'
-          - name: 'octonote-gui-windows'
+          - name: 'octonote-gui-windows-amd64.exe'
             platform: 'windows/amd64'
             os: 'windows-latest'
           - name: 'octonote-gui-darwin'
@@ -29,13 +29,44 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build Wails App
-        uses: dAppServer/wails-build-action@v2.2
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          build-name: ${{ matrix.build.name }}
-          build-platform: ${{ matrix.build.platform }}
-          package: true
-          wails-dir: './gui'
+          go-version: '1.22'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev build-essential pkg-config
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build Wails App
+        run: |
+          cd gui
+          wails build -platform ${{ matrix.build.platform }} -clean
+
+      - name: Prepare GUI Binary for Release
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [ "${{ matrix.build.os }}" = "macos-latest" ]; then
+            cp gui/build/bin/octoNote.app/Contents/MacOS/octoNote dist/octonote-gui-darwin || cp gui/build/bin/octonote dist/octonote-gui-darwin
+          elif [ "${{ matrix.build.os }}" = "windows-latest" ]; then
+            cp gui/build/bin/octonote.exe dist/octonote-gui-windows-amd64.exe
+          else
+            cp gui/build/bin/octonote dist/octonote-gui-linux-amd64
+          fi
+
+      - name: Upload GUI Binary to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -70,3 +101,28 @@ jobs:
           files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-npm:
+    needs: [build-gui, build-cli]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install npm dependencies
+        run: |
+          cd npm
+          npm ci
+
+      - name: Publish to NPM
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd npm
+          node scripts/publish-all.js

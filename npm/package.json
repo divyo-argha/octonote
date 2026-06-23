@@ -25,15 +25,23 @@
     "octonote": "bin/octonote.js",
     "octonote-gui": "bin/octonote-gui.js"
   },
-  "scripts": {
-    "postinstall": "node scripts/install.js"
+  "scripts": {},
+  "optionalDependencies": {
+    "@divyo-argha/octonote-linux-x64": "1.1.1",
+    "@divyo-argha/octonote-linux-arm64": "1.1.1",
+    "@divyo-argha/octonote-darwin-x64": "1.1.1",
+    "@divyo-argha/octonote-darwin-arm64": "1.1.1",
+    "@divyo-argha/octonote-windows-x64": "1.1.1",
+    "@divyo-argha/octonote-gui-linux-x64": "1.1.1",
+    "@divyo-argha/octonote-gui-darwin-x64": "1.1.1",
+    "@divyo-argha/octonote-gui-darwin-arm64": "1.1.1",
+    "@divyo-argha/octonote-gui-windows-x64": "1.1.1"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "files": [
     "bin/",
-    "scripts/",
     "README.md"
   ],
   "preferGlobal": true,
