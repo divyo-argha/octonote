@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -1121,11 +1125,15 @@ func main() {
 			fmt.Printf("octonote v%s\n", version)
 			os.Exit(0)
 		}
+		if arg == "--update" || arg == "-update" {
+			updateCommand()
+		}
 		if arg == "-h" || arg == "--help" || arg == "-help" {
 			fmt.Printf("octonote v%s - Lightweight multi-tab auto-saving terminal scratchpad\n\n", version)
 			fmt.Println("Usage:")
 			fmt.Println("  octonote                   Open the scratchpad")
 			fmt.Println("  octonote -v, --version     Print the version")
+			fmt.Println("  octonote --update          Check for and install updates")
 			fmt.Println("  octonote -h, --help        Show this help message")
 			os.Exit(0)
 		}
@@ -1150,5 +1158,166 @@ func main() {
 		fmt.Fprintf(os.Stderr, "octonote: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func updateCommand() {
+	fmt.Println("Checking for updates...")
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", "https://api.github.com/repos/divyo-argha/octonote/releases/latest", nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating request: %v\n", err)
+		os.Exit(1)
+	}
+	req.Header.Set("User-Agent", "octonote-updater")
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error checking for updates: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintf(os.Stderr, "GitHub API returned status: %s\n", resp.Status)
+		os.Exit(1)
+	}
+
+	var rel struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing update info: %v\n", err)
+		os.Exit(1)
+	}
+
+	latest := strings.TrimPrefix(rel.TagName, "v")
+	if !isNewerVersion(latest, version) {
+		fmt.Printf("octonote is already up-to-date (v%s).\n", version)
+		os.Exit(0)
+	}
+
+	fmt.Printf("\nA new version of octonote is available: v%s -> v%s\n", version, latest)
+
+	execPath, err := os.Executable()
+	if err == nil {
+		// Detect npm installation
+		if strings.Contains(execPath, "node_modules") || strings.Contains(execPath, "npm") {
+			fmt.Println("To update, please run:")
+			fmt.Println("  npm install -g octonote@latest")
+			os.Exit(0)
+		}
+	}
+
+	fmt.Print("Would you like to download and install this update? (y/N): ")
+	var answer string
+	fmt.Scanln(&answer)
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	if answer != "y" && answer != "yes" {
+		fmt.Println("Update cancelled.")
+		os.Exit(0)
+	}
+
+	// Standalone binary self-update
+	fmt.Println("Downloading update...")
+	var arch string
+	switch runtime.GOARCH {
+	case "amd64":
+		arch = "amd64"
+	case "arm64":
+		arch = "arm64"
+	default:
+		fmt.Fprintf(os.Stderr, "Unsupported architecture for self-update: %s. Please update manually.\n", runtime.GOARCH)
+		os.Exit(1)
+	}
+
+	var osName string
+	switch runtime.GOOS {
+	case "darwin":
+		osName = "darwin"
+	case "linux":
+		osName = "linux"
+	case "windows":
+		osName = "windows"
+	default:
+		fmt.Fprintf(os.Stderr, "Unsupported OS for self-update: %s. Please update manually.\n", runtime.GOOS)
+		os.Exit(1)
+	}
+
+	ext := ""
+	if runtime.GOOS == "windows" {
+		ext = ".exe"
+	}
+
+	binaryName := fmt.Sprintf("octonote-%s-%s%s", osName, arch, ext)
+	downloadURL := fmt.Sprintf("https://github.com/divyo-argha/octonote/releases/download/v%s/%s", latest, binaryName)
+
+	resp, err = http.Get(downloadURL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error downloading binary: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintf(os.Stderr, "Failed to download update binary from URL: %s (Status: %s)\n", downloadURL, resp.Status)
+		os.Exit(1)
+	}
+
+	tmpPath := execPath + ".tmp"
+	out, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating temp file: %v\n", err)
+		os.Exit(1)
+	}
+
+	_, err = io.Copy(out, resp.Body)
+	out.Close() // Close file write handle
+	if err != nil {
+		os.Remove(tmpPath)
+		fmt.Fprintf(os.Stderr, "Error saving binary: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Rename dance
+	oldPath := execPath + ".old"
+	_ = os.Remove(oldPath)
+	err = os.Rename(execPath, oldPath)
+	if err != nil {
+		// Try direct overwrite (Unix)
+		err = os.Rename(tmpPath, execPath)
+		if err != nil {
+			os.Remove(tmpPath)
+			fmt.Fprintf(os.Stderr, "Error replacing binary: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		err = os.Rename(tmpPath, execPath)
+		if err != nil {
+			_ = os.Rename(oldPath, execPath) // restore
+			os.Remove(tmpPath)
+			fmt.Fprintf(os.Stderr, "Error replacing binary: %v\n", err)
+			os.Exit(1)
+		}
+		_ = os.Remove(oldPath)
+	}
+
+	fmt.Println("✓ Successfully updated octonote!")
+	os.Exit(0)
+}
+
+func isNewerVersion(latest, current string) bool {
+	lParts := strings.Split(strings.TrimPrefix(latest, "v"), ".")
+	cParts := strings.Split(strings.TrimPrefix(current, "v"), ".")
+	for i := 0; i < len(lParts) && i < len(cParts); i++ {
+		var lVal, cVal int
+		fmt.Sscanf(lParts[i], "%d", &lVal)
+		fmt.Sscanf(cParts[i], "%d", &cVal)
+		if lVal > cVal {
+			return true
+		}
+		if lVal < cVal {
+			return false
+		}
+	}
+	return len(lParts) > len(cParts)
 }
 

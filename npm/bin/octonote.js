@@ -16,6 +16,52 @@ if (process.argv.includes('-v') || process.argv.includes('--version')) {
   process.exit(0);
 }
 
+if (process.argv.includes('--update')) {
+  console.log('Checking for updates...');
+  const https = require('https');
+  const req = https.get('https://registry.npmjs.org/octonote/latest', (res) => {
+    let data = '';
+    res.on('data', (chunk) => data += chunk);
+    res.on('end', () => {
+      try {
+        const latest = JSON.parse(data).version;
+        if (latest && isNewerVersion(latest, version)) {
+          console.log(`\nA new version of octonote is available: v${version} -> v${latest}`);
+          console.log('To update, run:\n  npm install -g octonote@latest\n');
+        } else {
+          console.log(`octonote is already up-to-date (v${version}).`);
+        }
+      } catch (err) {
+        console.error('Failed to check for updates:', err.message);
+      }
+      process.exit(0);
+    });
+  });
+  req.on('error', (err) => {
+    console.error('Failed to check for updates:', err.message);
+    process.exit(1);
+  });
+  req.setTimeout(10000, () => {
+    req.destroy();
+    console.error('Update check timed out.');
+    process.exit(1);
+  });
+  return;
+}
+
+function isNewerVersion(latest, current) {
+  const l = latest.split('.').map(Number);
+  const c = current.split('.').map(Number);
+  for (let i = 0; i < Math.max(l.length, c.length); i++) {
+    const lVal = l[i] || 0;
+    const cVal = c[i] || 0;
+    if (lVal > cVal) return true;
+    if (lVal < cVal) return false;
+  }
+  return false;
+}
+
+
 
 function getPlatformBinary() {
   const platform = process.platform;
