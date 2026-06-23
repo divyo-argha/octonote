@@ -40,7 +40,11 @@
 ---
 
 > [!NOTE]
-> This npm package distributes the **Terminal User Interface (TUI)** version of octoNote. If you want the Desktop GUI version, please check the main [GitHub Repository](https://github.com/divyo-argha/octonote).
+> This npm package distributes the **Terminal User Interface (TUI)** version of octoNote. 
+> To install the Desktop GUI version easily from your terminal, run:
+> ```bash
+> octonote install-gui
+> ```
 
 ---
 
@@ -75,6 +79,14 @@ npm install -g octonote
 
 # Or run instantly without installation using npx
 npx octonote
+```
+
+### 🖥️ Desktop GUI Installation
+
+If you would also like to install the companion Desktop GUI application globally, simply run:
+
+```bash
+octonote install-gui
 ```
 
 ---

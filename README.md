@@ -99,8 +99,11 @@ iwr -useb https://raw.githubusercontent.com/divyo-argha/octonote/main/scripts/in
 
 ### NPM
 ```bash
-# Install TUI & GUI globally in one command
+# Install TUI (CLI) globally
 npm install -g octonote
+
+# Install GUI globally (Optional)
+octonote install-gui
 
 # Run TUI instantly without install
 npx octonote
