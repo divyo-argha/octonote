@@ -84,9 +84,9 @@ async function installGui() {
   let binDir = '';
   try {
     const { execSync } = require('child_process');
-    binDir = execSync('npm bin -g').toString().trim();
+    const prefix = execSync('npm config get prefix').toString().trim();
+    binDir = platform === 'win32' ? prefix : path.join(prefix, 'bin');
   } catch (err) {
-    // Fallback if npm bin -g fails
     if (platform === 'win32') {
       binDir = path.join(process.env.APPDATA, 'npm');
     } else {
@@ -104,6 +104,7 @@ async function installGui() {
     
     console.log(`Installing GUI binary to ${targetPath}...`);
     try {
+      fs.mkdirSync(binDir, { recursive: true });
       fs.copyFileSync(tmpPath, targetPath);
     } catch (err) {
       if (err.code === 'EACCES' || err.code === 'EPERM') {

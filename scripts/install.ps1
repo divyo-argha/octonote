@@ -8,7 +8,7 @@ try {
 $arch = if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") { "amd64" } else { "arm64" }
 
 $cliBinary = "octonote-windows-$arch.exe"
-$guiBinary = "octonote-gui-windows-$arch.exe"
+$guiBinary = "octonote-gui-windows.exe"
 
 $cliUrl = "https://github.com/$repo/releases/download/v$version/$cliBinary"
 $guiUrl = "https://github.com/$repo/releases/download/v$version/$guiBinary"
