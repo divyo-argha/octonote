@@ -41,9 +41,9 @@ var (
 				Background(lipgloss.Color(colTabBg)).
 				Foreground(lipgloss.Color(colMuted)).
 				Border(lipgloss.Border{
-			Top: "─", Bottom: " ", Left: "│", Right: "│",
-			TopLeft: "╭", TopRight: "╮", BottomLeft: " ", BottomRight: " ",
-		}, true).
+			Top: "─", Bottom: "", Left: "│", Right: "│",
+			TopLeft: "╭", TopRight: "╮", BottomLeft: "├", BottomRight: "┤",
+		}, true, true, false, true).
 		BorderForeground(lipgloss.Color(colBorder))
 
 	styleTabActive = lipgloss.NewStyle().
@@ -52,9 +52,9 @@ var (
 			Foreground(lipgloss.Color("#ffffff")).
 			Bold(true).
 			Border(lipgloss.Border{
-			Top: "─", Bottom: " ", Left: "│", Right: "│",
-			TopLeft: "╭", TopRight: "╮", BottomLeft: " ", BottomRight: " ",
-		}, true).
+			Top: "─", Bottom: "", Left: "│", Right: "│",
+			TopLeft: "╭", TopRight: "╮", BottomLeft: "├", BottomRight: "┤",
+		}, true, true, false, true).
 		BorderForeground(lipgloss.Color(colAccentLt))
 
 	styleTabBar = lipgloss.NewStyle().
@@ -914,21 +914,154 @@ func (m model) View() string {
 }
 
 func (m model) renderTabBar() string {
-	tabs := make([]string, len(m.state.Tabs))
-	for i, tab := range m.state.Tabs {
-		label := truncate(tab.Title, 14)
-		// Show ● when content is unsaved to disk.
-		unsaved := (tab.FilePath == "" && strings.TrimSpace(m.textareas[i].Value()) != "") ||
-			(tab.FilePath != "" && tab.FileIsDirty)
-		if unsaved {
-			label = "● " + label
+	numTabs := len(m.state.Tabs)
+	if numTabs == 0 {
+		return ""
+	}
+
+	usableW := m.width - 4
+	if usableW < 10 {
+		usableW = 10
+	}
+
+	// 1. Determine dynamic limits based on the number of tabs
+	var activeLabelLen, inactiveLabelLen, padding int
+	switch {
+	case numTabs <= 3:
+		activeLabelLen = 16
+		inactiveLabelLen = 12
+		padding = 2
+	case numTabs <= 6:
+		activeLabelLen = 14
+		inactiveLabelLen = 8
+		padding = 1
+	default:
+		activeLabelLen = 12
+		inactiveLabelLen = 5
+		padding = 1
+	}
+
+	// Helper to calculate if tab is unsaved
+	isTabUnsaved := func(tabIdx int) bool {
+		if tabIdx >= len(m.textareas) {
+			return false
 		}
+		tab := m.state.Tabs[tabIdx]
+		return (tab.FilePath == "" && strings.TrimSpace(m.textareas[tabIdx].Value()) != "") ||
+			(tab.FilePath != "" && tab.FileIsDirty)
+	}
+
+	// 2. Pre-calculate the outer width of each tab if it were rendered
+	tabWidths := make([]int, numTabs)
+	for i := range m.state.Tabs {
+		unsavedLen := 0
+		if isTabUnsaved(i) {
+			unsavedLen = 2 // "● "
+		}
+		prefixLen := len(fmt.Sprintf(" %d: ", i+1))
+		labelLen := inactiveLabelLen
 		if i == m.state.ActiveIndex {
-			tabs[i] = styleTabActive.Render(fmt.Sprintf(" %d: %s ", i+1, label))
-		} else {
-			tabs[i] = styleTabInactive.Render(fmt.Sprintf(" %d: %s ", i+1, label))
+			labelLen = activeLabelLen
+		}
+		titleLen := utf8.RuneCountInString(m.state.Tabs[i].Title)
+		if titleLen < labelLen {
+			labelLen = titleLen
+		}
+		// Border (2) + Padding (2 * padding) + prefixLen + unsavedLen + labelLen
+		tabWidths[i] = 2 + (2 * padding) + prefixLen + unsavedLen + labelLen
+	}
+
+	// 3. Find the sliding window [start, end] centered around the active tab
+	start := m.state.ActiveIndex
+	end := m.state.ActiveIndex
+	currentWidth := tabWidths[m.state.ActiveIndex]
+	indicatorWidth := 3 // " ◀ " and " ▶ " take 3 chars each
+
+	for {
+		expanded := false
+
+		// Try expanding left
+		if start > 0 {
+			nextW := tabWidths[start-1]
+			leftIndicatorSpace := 0
+			if start-1 > 0 {
+				leftIndicatorSpace = indicatorWidth
+			}
+			rightIndicatorSpace := 0
+			if end < numTabs-1 {
+				rightIndicatorSpace = indicatorWidth
+			}
+
+			if currentWidth+nextW+leftIndicatorSpace+rightIndicatorSpace <= usableW {
+				start--
+				currentWidth += nextW
+				expanded = true
+			}
+		}
+
+		// Try expanding right
+		if end < numTabs-1 {
+			nextW := tabWidths[end+1]
+			leftIndicatorSpace := 0
+			if start > 0 {
+				leftIndicatorSpace = indicatorWidth
+			}
+			rightIndicatorSpace := 0
+			if end+1 < numTabs-1 {
+				rightIndicatorSpace = indicatorWidth
+			}
+
+			if currentWidth+nextW+leftIndicatorSpace+rightIndicatorSpace <= usableW {
+				end++
+				currentWidth += nextW
+				expanded = true
+			}
+		}
+
+		if !expanded {
+			break
 		}
 	}
+
+	// 4. Render only the tabs in the sliding window
+	tabs := make([]string, 0, numTabs)
+	styleIndicator := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(colAccentLt)).
+		Background(lipgloss.Color(colBg)).
+		Padding(0, 1).
+		Bold(true)
+
+	if start > 0 {
+		tabs = append(tabs, styleIndicator.Render("◀"))
+	}
+
+	for i := start; i <= end; i++ {
+		tab := m.state.Tabs[i]
+		
+		// Determine label length limit
+		limit := inactiveLabelLen
+		if i == m.state.ActiveIndex {
+			limit = activeLabelLen
+		}
+		label := truncate(tab.Title, limit)
+		if isTabUnsaved(i) {
+			label = "● " + label
+		}
+
+		var style lipgloss.Style
+		if i == m.state.ActiveIndex {
+			style = styleTabActive.Padding(0, padding)
+			tabs = append(tabs, style.Render(fmt.Sprintf(" %d: %s ", i+1, label)))
+		} else {
+			style = styleTabInactive.Padding(0, padding)
+			tabs = append(tabs, style.Render(fmt.Sprintf(" %d: %s ", i+1, label)))
+		}
+	}
+
+	if end < numTabs-1 {
+		tabs = append(tabs, styleIndicator.Render("▶"))
+	}
+
 	row := lipgloss.JoinHorizontal(lipgloss.Bottom, tabs...)
 	return styleTabBar.Width(m.width).Render(row)
 }
@@ -1102,15 +1235,18 @@ func (m model) renderLegend() string {
 	idx := m.state.ActiveIndex
 	tab := m.state.Tabs[idx]
 	var saveStatus string
+	unsaved := (tab.FilePath == "" && strings.TrimSpace(m.textareas[idx].Value()) != "") ||
+		(tab.FilePath != "" && tab.FileIsDirty)
+
 	switch {
-	case tab.FilePath != "" && !tab.FileIsDirty:
-		saveStatus = styleSaved.Render("✓ " + filepath.Base(tab.FilePath))
 	case tab.FilePath != "" && tab.FileIsDirty:
-		saveStatus = styleUnsaved.Render("● " + filepath.Base(tab.FilePath) + " (unsaved)")
-	case m.dirty:
-		saveStatus = styleUnsaved.Render("● unsaved  (^S/F2 to save)")
+		saveStatus = styleUnsaved.Render(fmt.Sprintf("● %s (unsaved - ^S to save)", filepath.Base(tab.FilePath)))
+	case tab.FilePath != "" && !tab.FileIsDirty:
+		saveStatus = styleSaved.Render(fmt.Sprintf("✓ %s (saved)", filepath.Base(tab.FilePath)))
+	case tab.FilePath == "" && unsaved:
+		saveStatus = styleUnsaved.Render(fmt.Sprintf("● %s (unsaved to disk - ^S to save)", tab.Title))
 	default:
-		saveStatus = styleSaved.Render("✓ saved " + m.lastSaved.Format("15:04:05"))
+		saveStatus = styleSaved.Render(fmt.Sprintf("✓ %s (auto-saved %s)", tab.Title, m.lastSaved.Format("15:04:05")))
 	}
 
 	usableWidth := m.width - 2 // styleLegend has Padding(0, 1)
