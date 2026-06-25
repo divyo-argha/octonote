@@ -94,6 +94,14 @@ function renderTabs() {
 
   const count = state.tabs.length;
   statusTabs.textContent = `${count} tab${count !== 1 ? 's' : ''}`;
+
+  // Scroll active tab into view smoothly
+  const activeTabEl = tabbar.querySelector('.tab--active');
+  if (activeTabEl) {
+    setTimeout(() => {
+      activeTabEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }, 50);
+  }
 }
 
 function loadActiveTabIntoEditor() {
@@ -282,14 +290,52 @@ function getSaveTimestamp() {
 }
 
 function setSaveStatus(status) {
-  statusSave.className = `status-indicator status-indicator--${status}`;
-  if (status === 'saved') {
-    statusSaveTx.textContent = `saved ${getSaveTimestamp()}`;
-  } else if (status === 'saving') {
-    statusSaveTx.textContent = 'saving…';
+  const tab = state.tabs[state.active_index];
+  if (!tab) return;
+
+  statusSave.className = 'status-indicator';
+
+  let iconHTML = '';
+  let text = '';
+
+  if (status === 'saving') {
+    statusSave.classList.add('status-indicator--saving');
+    iconHTML = `<svg class="status-icon" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true" style="animation: blink-saving 0.8s ease-in-out infinite;"><circle cx="4" cy="4" r="4" fill="var(--col-warn)"/></svg>`;
+    text = 'saving…';
+  } else if (status === 'error') {
+    statusSave.classList.add('status-indicator--error');
+    iconHTML = `<svg class="status-icon" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="var(--col-danger)"/></svg>`;
+    text = 'save error';
   } else {
-    statusSaveTx.textContent = 'save error';
+    const isUnsaved = tab.file_is_dirty || (!tab.file_path && (tab.body || '').trim().length > 0);
+
+    if (tab.file_path) {
+      const name = tab.file_path.split('/').pop();
+      if (tab.file_is_dirty) {
+        statusSave.classList.add('status-indicator--dirty');
+        iconHTML = `<svg class="status-icon" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="var(--col-warn)"/></svg>`;
+        text = `unsaved changes to ${name}`;
+      } else {
+        statusSave.classList.add('status-indicator--saved');
+        iconHTML = `<svg class="status-icon" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="var(--col-success)"/></svg>`;
+        text = `saved to ${name} at ${getSaveTimestamp()}`;
+      }
+    } else {
+      if (isUnsaved) {
+        statusSave.classList.add('status-indicator--dirty');
+        iconHTML = `<svg class="status-icon" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="var(--col-warn)"/></svg>`;
+        text = 'scratchpad (unsaved to file)';
+      } else {
+        statusSave.classList.add('status-indicator--empty');
+        iconHTML = `<svg class="status-icon" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="var(--col-muted)"/></svg>`;
+        text = 'empty scratchpad';
+      }
+    }
   }
+
+  statusSave.innerHTML = `${iconHTML}<span id="status-save-text"></span>`;
+  const textEl = statusSave.querySelector('#status-save-text');
+  if (textEl) textEl.textContent = text;
 }
 
 function getCursorLine() {
@@ -553,16 +599,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // ── File Open / Save ──────────────────────────────────────────────────────────
 
 function updateFileStatus() {
-  const tab = state.tabs[state.active_index];
-  if (!tab) return;
-  if (tab.file_path) {
-    const name = tab.file_path.split('/').pop();
-    statusFile.textContent = tab.file_is_dirty ? '● ' + name : '✓ ' + name;
-    statusFile.style.color = tab.file_is_dirty ? '#f59e0b' : '#10b981';
-    statusFile.removeAttribute('hidden');
-  } else {
-    statusFile.setAttribute('hidden', '');
-  }
+  setSaveStatus('saved');
 }
 
 // Cmd/Ctrl+S: overwrite if file known, else open Save As.

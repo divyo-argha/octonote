@@ -14,21 +14,24 @@
   <!-- Screen reader heading (visually hidden) -->
   <h1 class="sr-only">octoNote — scratchpad workspace</h1>
 
-  <!-- Draggable title bar (frameless window) -->
+  <!-- Draggable combined title bar & tab bar (frameless window) -->
   <header id="titlebar" class="titlebar" aria-label="Window title bar">
     <div class="titlebar__drag-region" style="--wails-draggable: drag">
-      <img class="titlebar__logo" src="logo.png" alt="octoNote logo" aria-hidden="true" />
-      <span class="titlebar__name">octoNote</span>
+      <div class="titlebar__logo-container">
+        <img class="titlebar__logo" src="logo.png" alt="octoNote logo" aria-hidden="true" />
+      </div>
     </div>
-    <div class="titlebar__actions">
-      <button id="btn-share" class="share-btn" title="Share active tab (P2P, no account needed)" aria-label="Share active tab">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="13" cy="3" r="2"/><circle cx="3" cy="8" r="2"/><circle cx="13" cy="13" r="2"/>
-          <line x1="4.93" y1="9.03" x2="11.07" y2="11.97"/><line x1="11.07" y1="4.03" x2="4.93" y2="6.97"/>
+    
+    <!-- Tab bar inside titlebar -->
+    <nav id="tabbar" class="tabbar" role="tablist" aria-label="Scratchpad tabs" style="--wails-draggable: drag">
+      <!-- Tabs injected by main.js -->
+      <button id="btn-new-tab" class="tab tab--new" title="New tab (Ctrl+N)" aria-label="Create new tab" style="--wails-draggable: no-drag">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <line x1="7" y1="1" x2="7" y2="13"/><line x1="1" y1="7" x2="13" y2="7"/>
         </svg>
-        <span>Share</span>
       </button>
-    </div>
+    </nav>
+
     <div class="titlebar__controls" role="group" aria-label="Window controls">
       <button id="btn-minimize" class="wctrl wctrl--minimize" title="Minimize" aria-label="Minimize window">
         <svg width="10" height="2" viewBox="0 0 10 2" fill="currentColor" aria-hidden="true"><rect width="10" height="2"/></svg>
@@ -41,16 +44,6 @@
       </button>
     </div>
   </header>
-
-  <!-- Tab bar -->
-  <nav id="tabbar" class="tabbar" role="tablist" aria-label="Scratchpad tabs">
-    <!-- Tabs injected by main.js -->
-    <button id="btn-new-tab" class="tab tab--new" title="New tab (Ctrl+N)" aria-label="Create new tab">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-        <line x1="7" y1="1" x2="7" y2="13"/><line x1="1" y1="7" x2="13" y2="7"/>
-      </svg>
-    </button>
-  </nav>
 
   <!-- Editor area -->
   <main id="editor-area" class="editor-area" role="main">
@@ -82,6 +75,13 @@
         <svg class="status-icon" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4"/></svg>
         <span id="status-save-text">saved</span>
       </span>
+      <button id="btn-share" class="share-btn" title="Share active tab (P2P, no account needed)" aria-label="Share active tab">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="13" cy="3" r="2"/><circle cx="3" cy="8" r="2"/><circle cx="13" cy="13" r="2"/>
+          <line x1="4.93" y1="9.03" x2="11.07" y2="11.97"/><line x1="11.07" y1="4.03" x2="4.93" y2="6.97"/>
+        </svg>
+        <span>Share</span>
+      </button>
       <span id="status-pos" class="status-pos" aria-label="Cursor position">Ln 1, Col 1</span>
       <span id="status-tabs" class="status-tabs" aria-label="Tab count">1 tab</span>
     </div>
