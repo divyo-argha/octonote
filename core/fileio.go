@@ -30,9 +30,22 @@ func SaveFile(path, content string) error {
 	}
 
 	tmp := path + ".octonote.tmp"
-	if err := os.WriteFile(tmp, []byte(content), 0o644); err != nil {
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	if err != nil {
+		return fmt.Errorf("save: create temp file: %w", err)
+	}
+	if _, err := f.Write([]byte(content)); err != nil {
+		f.Close()
 		return fmt.Errorf("save: write temp file: %w", err)
 	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return fmt.Errorf("save: sync temp file: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("save: close temp file: %w", err)
+	}
+
 	if err := os.Rename(tmp, path); err != nil {
 		_ = os.Remove(tmp)
 		return fmt.Errorf("save: rename to %s: %w", path, err)

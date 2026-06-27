@@ -146,7 +146,22 @@ func (s *Storage) atomicWrite(st State) {
 	}
 
 	tmp := s.file + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		s.setErr(err)
+		return
+	}
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		s.setErr(err)
+		return
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		s.setErr(err)
+		return
+	}
+	if err := f.Close(); err != nil {
 		s.setErr(err)
 		return
 	}
