@@ -1,41 +1,21 @@
-<div align="center">
-  <br />
-  <img src="https://raw.githubusercontent.com/divyo-argha/octonote/main/assets/logo.png" alt="octoNote" width="120" height="120" style="border-radius:28px" />
-  <!-- <br /><br /> -->
-  <h1>octoNote</h1>
+# octoNote
 
-  <p>
-    <strong>A lightning-fast, crash-proof, multi-tab scratchpad for your terminal.</strong><br />
-    Stop hitting Ctrl+S. Stop losing quick ideas. Stop naming throwaway files.
-  </p>
+**A lightning-fast, crash-proof, multi-tab scratchpad for your terminal.**  
+Stop hitting Ctrl+S. Stop losing quick ideas. Stop naming throwaway files.
 
-  <p>
-    <a href="https://github.com/divyo-argha/octonote/releases"><img src="https://img.shields.io/github/v/release/divyo-argha/octonote?style=flat-square&color=00FFAA&label=latest" alt="Latest Release" /></a>
-    <a href="https://www.npmjs.com/package/octonote"><img src="https://img.shields.io/npm/v/octonote?style=flat-square&color=CB3837&logo=npm&logoColor=white&label=npm" alt="npm" /></a>
-    <a href="https://www.npmjs.com/package/octonote"><img src="https://img.shields.io/npm/dt/octonote?style=flat-square&color=CB3837&logo=npm&logoColor=white&label=total%20downloads" alt="total downloads" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue?style=flat-square" alt="Apache 2.0" /></a>
-  </p>
+[![Latest Release](https://img.shields.io/github/v/release/divyo-argha/octonote?style=flat-square&color=00FFAA&label=latest)](https://github.com/divyo-argha/octonote/releases)
+[![npm](https://img.shields.io/npm/v/octonote?style=flat-square&color=CB3837&logo=npm&logoColor=white&label=npm)](https://www.npmjs.com/package/octonote)
+[![total downloads](https://img.shields.io/npm/dt/octonote?style=flat-square&color=CB3837&logo=npm&logoColor=white&label=total%20downloads)](https://www.npmjs.com/package/octonote)
+[![License-Apache_2.0](https://img.shields.io/badge/License-Apache_2.0-blue?style=flat-square)](LICENSE)
 
-  <p>
-    <a href="#-the-problem">The Problem</a> ·
-    <a href="#-installation">Installation</a> ·
-    <a href="#-quick-start">Quick Start</a> ·
-    <a href="#-why-octonote">Why octoNote</a> ·
-    <a href="#-features">Features</a> ·
-    <a href="#-keyboard-shortcuts">Shortcuts</a> ·
-    <a href="#-persistence">Persistence</a>
-  </p>
+[The Problem](#-the-problem) · [Installation](#-installation) · [Quick Start](#-quick-start) · [Why octoNote](#-why-octonote) · [Features](#-features) · [Shortcuts](#-keyboard-shortcuts) · [Persistence](#-persistence)
 
-  <br />
+---
 
-  <img src="https://img.shields.io/badge/macOS-supported-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS" />
-  <img src="https://img.shields.io/badge/Linux-supported-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux" />
-  <img src="https://img.shields.io/badge/Windows-supported-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows" />
-  <img src="https://img.shields.io/badge/Terminal_TUI-supported-4E9A06?style=for-the-badge&logo=gnubash&logoColor=white" alt="Terminal TUI" />
-
-  <br /><br />
-
-</div>
+![macOS](https://img.shields.io/badge/macOS-supported-000000?style=for-the-badge&logo=apple&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-supported-FCC624?style=for-the-badge&logo=linux&logoColor=black)
+![Windows](https://img.shields.io/badge/Windows-supported-0078D4?style=for-the-badge&logo=windows&logoColor=white)
+![Terminal TUI](https://img.shields.io/badge/Terminal_TUI-supported-4E9A06?style=for-the-badge&logo=gnubash&logoColor=white)
 
 ---
 
