@@ -1,29 +1,47 @@
 $repo = "divyo-argha/octonote"
-try {
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest"
-    $version = $release.tag_name.TrimStart('v')
-} catch {
-    $version = "1.3.0"
+$repoUrl = "https://github.com/$repo.git"
+
+if (-not (Get-Command "go" -ErrorAction SilentlyContinue)) {
+    Write-Error "✗ Go is not installed. Install it from https://go.dev/dl/ and retry."
+    exit 1
 }
-$arch = if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") { "amd64" } else { "arm64" }
 
-$cliBinary = "octonote-windows-$arch.exe"
-$guiBinary = "octonote-gui-windows.exe"
+$tmpDir = [System.IO.Path]::GetTempPath() + "octonote-" + [Guid]::NewGuid().ToString()
+New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
+Set-Location $tmpDir
 
-$cliUrl = "https://github.com/$repo/releases/download/v$version/$cliBinary"
-$guiUrl = "https://github.com/$repo/releases/download/v$version/$guiBinary"
+Write-Host "→ Cloning octonote..."
+git clone --depth=1 $repoUrl octonote
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Failed to clone repository"
+    exit 1
+}
+
+Set-Location octonote
+
+Write-Host "→ Building CLI..."
+go build -trimpath -ldflags "-s -w" -o octonote.exe ./tui
+
+Write-Host "→ Building GUI (this may take a moment)..."
+if (-not (Get-Command "wails" -ErrorAction SilentlyContinue)) {
+    Write-Host "→ Wails not found. Installing Wails v2..."
+    go install github.com/wailsapp/wails/v2/cmd/wails@latest
+}
+Set-Location gui
+wails build -clean -ldflags "-s -w"
+Set-Location ..
 
 $binDir = "$env:USERPROFILE\.octonote\bin"
 if (!(Test-Path $binDir)) {
     New-Item -ItemType Directory -Force -Path $binDir | Out-Null
 }
 
-$cliDest = Join-Path $binDir "octonote.exe"
-$guiDest = Join-Path $binDir "octonote-gui.exe"
+Move-Item -Path "octonote.exe" -Destination "$binDir\octonote.exe" -Force
+Move-Item -Path "gui\build\bin\octonote.exe" -Destination "$binDir\octonote-gui.exe" -Force -ErrorAction SilentlyContinue
+Move-Item -Path "gui\build\bin\octonote-gui.exe" -Destination "$binDir\octonote-gui.exe" -Force -ErrorAction SilentlyContinue
 
-Write-Host "Downloading octonote CLI & GUI..."
-Invoke-WebRequest -Uri $cliUrl -OutFile $cliDest
-Invoke-WebRequest -Uri $guiUrl -OutFile $guiDest
+Set-Location $env:USERPROFILE
+Remove-Item -Recurse -Force $tmpDir
 
 # Add path to User Env Path if not present
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")

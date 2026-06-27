@@ -79,73 +79,7 @@ EOF
     fi
 }
 
-# Try fetching latest version from Github releases
-VERSION=$(curl -sSfL "https://api.github.com/repos/$REPO/releases/latest" | grep -Po '"tag_name":\s*"\K[^"]+' || true)
-VERSION="${VERSION#v}"
-
-# Attempt pre-built binary download if version was found
-if [ -n "$VERSION" ]; then
-    CLI_URL="https://github.com/$REPO/releases/download/v$VERSION/$CLI_BINARY"
-    GUI_URL="https://github.com/$REPO/releases/download/v$VERSION/$GUI_BINARY"
-    
-    echo "→ Attempting to download pre-built CLI & GUI..."
-    
-    # Try downloading both
-    DOWNLOADED=true
-    if ! curl -sSfL "$CLI_URL" -o "$TMP_DIR/octonote"; then
-        DOWNLOADED=false
-    fi
-    
-    if [ "$DOWNLOADED" = "true" ]; then
-        if curl -sSfL "$GUI_URL" -o "$TMP_DIR/octonote-gui"; then
-            # Success! Install them
-            echo "→ Installing pre-built CLI & GUI to $INSTALL_DIR…"
-            chmod +x "$TMP_DIR/octonote" "$TMP_DIR/octonote-gui"
-            if [ -w "$INSTALL_DIR" ]; then
-                mv "$TMP_DIR/octonote" "$INSTALL_DIR/octonote"
-                mv "$TMP_DIR/octonote-gui" "$INSTALL_DIR/octonote-gui"
-            else
-                sudo mv "$TMP_DIR/octonote" "$INSTALL_DIR/octonote"
-                sudo mv "$TMP_DIR/octonote-gui" "$INSTALL_DIR/octonote-gui"
-            fi
-            
-            # Install launcher
-            install_desktop_entry
-            
-            echo ""
-            echo "✓ Installation complete!"
-            echo "  Run 'octonote'     → Terminal TUI"
-            echo "  Run 'octonote-gui' → Desktop GUI"
-            exit 0
-        else
-            # Also try downloading with -amd64 / -arm64 suffix just in case
-            GUI_URL_SUFFIXED="https://github.com/$REPO/releases/download/v$VERSION/${GUI_BINARY}-${ARCH}"
-            if curl -sSfL "$GUI_URL_SUFFIXED" -o "$TMP_DIR/octonote-gui"; then
-                echo "→ Installing pre-built CLI & GUI to $INSTALL_DIR…"
-                chmod +x "$TMP_DIR/octonote" "$TMP_DIR/octonote-gui"
-                if [ -w "$INSTALL_DIR" ]; then
-                    mv "$TMP_DIR/octonote" "$INSTALL_DIR/octonote"
-                    mv "$TMP_DIR/octonote-gui" "$INSTALL_DIR/octonote-gui"
-                else
-                    sudo mv "$TMP_DIR/octonote" "$INSTALL_DIR/octonote"
-                    sudo mv "$TMP_DIR/octonote-gui" "$INSTALL_DIR/octonote-gui"
-                fi
-                
-                # Install launcher
-                install_desktop_entry
-                
-                echo ""
-                echo "✓ Installation complete!"
-                echo "  Run 'octonote'     → Terminal TUI"
-                echo "  Run 'octonote-gui' → Desktop GUI"
-                exit 0
-            fi
-        fi
-    fi
-    echo "⚠ Pre-built binaries not found. Falling back to build from source."
-fi
-
-# Fallback: Build from source
+# Build from source
 # Check Go
 if ! command -v go >/dev/null 2>&1; then
     echo "✗ Go is not installed. Install it from https://go.dev/dl/ and retry."
