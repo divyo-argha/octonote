@@ -340,6 +340,24 @@ body::before {
   z-index: 10;
 }
 
+.editor-highlight {
+  position: absolute;
+  inset: 0;
+  padding: var(--space-lg) var(--space-lg) var(--space-md);
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--col-text);
+  font-family: var(--font-editor);
+  font-size: var(--font-size-editor);
+  line-height: var(--line-height-editor);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
 .editor {
   flex: 1;
   width: 100%;
@@ -349,20 +367,56 @@ body::before {
   border: none;
   outline: none;
   resize: none;
-  color: var(--col-text);
+  color: transparent;
   font-family: var(--font-editor);
   font-size: var(--font-size-editor);
   line-height: var(--line-height-editor);
-  caret-color: var(--col-accent-lt);
+  caret-color: var(--col-text);
   scrollbar-width: thin;
   scrollbar-color: var(--col-border) transparent;
   overflow-y: auto;
   overflow-x: hidden;
+  position: relative;
+  z-index: 2;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .editor::placeholder {
   color: var(--col-border);
   font-style: italic;
+}
+
+/* Markdown Highlight Classes */
+.md-header {
+  color: var(--col-accent-lt);
+  font-weight: 700;
+}
+.md-bold {
+  color: var(--col-text);
+  font-weight: 700;
+}
+.md-italic {
+  color: var(--col-text);
+  font-style: italic;
+}
+.md-code {
+  color: var(--col-success);
+  background: rgba(16, 185, 129, 0.1);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.md-list {
+  color: var(--col-warn);
+}
+.md-quote {
+  color: var(--col-muted);
+  border-left: 2px solid var(--col-muted);
+  padding-left: 8px;
+}
+.md-link {
+  color: var(--col-accent);
+  text-decoration: underline;
 }
 
 .editor::-webkit-scrollbar { width: 8px; }
@@ -461,6 +515,7 @@ body::before {
 }
 
 .status-pos,
+.status-words,
 .status-tabs {
   color: var(--col-muted);
   font-family: var(--font-editor);

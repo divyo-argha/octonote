@@ -1,14 +1,17 @@
 const tabbar       = document.getElementById('tabbar');
 const btnNewTab    = document.getElementById('btn-new-tab');
 const editor       = document.getElementById('editor');
+const editorHighlight = document.getElementById('editor-highlight');
 const statusSave   = document.getElementById('status-save');
 const statusSaveTx = document.getElementById('status-save-text');
 const statusPos    = document.getElementById('status-pos');
+const statusWords  = document.getElementById('status-words');
 const statusTabs   = document.getElementById('status-tabs');
 const statusFile   = document.getElementById('status-file');
 const btnMinimize  = document.getElementById('btn-minimize');
 const btnMaximize  = document.getElementById('btn-maximize');
 const btnClose     = document.getElementById('btn-close');
+const btnOntop     = document.getElementById('btn-ontop');
 
 // Open / Save-as modal elements
 const openModal        = document.getElementById('open-modal');
@@ -25,9 +28,9 @@ const saveasModalClose   = document.getElementById('saveas-modal-close');
 let state = { tabs: [], active_index: 0 };
 let saveTimer = null;
 let saving = false;
+let isAlwaysOnTop = false;
 // Track whether a pending close-tab should happen after save-as completes.
 let pendingCloseAfterSave = false;
-
 
 const SAVE_DEBOUNCE_MS = 50;
 const DOUBLE_CLICK_RENAME_MS = 250;
@@ -108,6 +111,7 @@ function loadActiveTabIntoEditor() {
   const tab = state.tabs[state.active_index];
   if (!tab) return;
   editor.value = tab.body || '';
+  updateHighlight();
   try {
     const lines = editor.value.split('\n');
     let pos = 0;
@@ -118,6 +122,7 @@ function loadActiveTabIntoEditor() {
   } catch (_) {}
   editor.focus();
   updateFileStatus();
+  updateCursorStatus();
 }
 
 function scheduleSave() {
@@ -275,6 +280,12 @@ function onKeyDown(e) {
 editor.addEventListener('input', () => {
   scheduleSave();
   updateCursorStatus();
+  updateHighlight();
+});
+
+editor.addEventListener('scroll', () => {
+  editorHighlight.scrollTop = editor.scrollTop;
+  editorHighlight.scrollLeft = editor.scrollLeft;
 });
 
 editor.addEventListener('keyup', updateCursorStatus);
@@ -283,6 +294,34 @@ editor.addEventListener('selectionchange', updateCursorStatus);
 document.addEventListener('selectionchange', () => {
   if (document.activeElement === editor) updateCursorStatus();
 });
+
+function updateHighlight() {
+  let text = editor.value;
+  // basic escape
+  text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  
+  // Headers
+  text = text.replace(/^(#{1,6}\s+)(.*)$/gm, '<span class="md-header">$1$2</span>');
+  // Bold
+  text = text.replace(/(\*\*)([^\*]+)(\*\*)/g, '<span class="md-bold">$1$2$3</span>');
+  // Italic
+  text = text.replace(/(\*)([^\*]+)(\*)/g, '<span class="md-italic">$1$2$3</span>');
+  // Code
+  text = text.replace(/(`)([^`]+)(`)/g, '<span class="md-code">$1$2$3</span>');
+  // Links
+  text = text.replace(/(\[.*?\]\(.*?\))/g, '<span class="md-link">$1</span>');
+  // Lists
+  text = text.replace(/^(\s*[-*+]\s+)(.*)$/gm, '<span class="md-list">$1</span>$2');
+  // Quotes
+  text = text.replace(/^(\s*>\s+)(.*)$/gm, '<span class="md-quote">$1$2</span>');
+
+  // Fix trailing newline rendering issue in divs
+  if (text.endsWith('\n')) {
+    text += ' ';
+  }
+
+  editorHighlight.innerHTML = text;
+}
 
 function getSaveTimestamp() {
   const now = new Date();
@@ -344,11 +383,16 @@ function getCursorLine() {
 }
 
 function updateCursorStatus() {
-  const text = editor.value.substring(0, editor.selectionStart);
+  const fullText = editor.value;
+  const text = fullText.substring(0, editor.selectionStart);
   const lines = text.split('\n');
   const line = lines.length;
   const col = lines[lines.length - 1].length + 1;
   statusPos.textContent = `Ln ${line}, Col ${col}`;
+  
+  // Update Word Count
+  const words = fullText.trim().split(/\s+/).filter(x => x.length > 0).length;
+  statusWords.textContent = `${words} word${words !== 1 ? 's' : ''}`;
 }
 
 btnMinimize?.addEventListener('click', () => {
@@ -361,6 +405,18 @@ btnMaximize?.addEventListener('click', () => {
 
 btnClose?.addEventListener('click', () => {
   window.runtime?.Quit?.();
+});
+
+btnOntop?.addEventListener('click', () => {
+  isAlwaysOnTop = !isAlwaysOnTop;
+  window.runtime?.WindowSetAlwaysOnTop?.(isAlwaysOnTop);
+  btnOntop.classList.toggle('share-btn--active', isAlwaysOnTop);
+  const icon = btnOntop.querySelector('svg');
+  if (isAlwaysOnTop) {
+    icon.style.color = 'var(--col-accent-lt)';
+  } else {
+    icon.style.color = 'currentColor';
+  }
 });
 
 btnNewTab.addEventListener('click', newTab);
@@ -581,11 +637,13 @@ window.addEventListener('DOMContentLoaded', () => {
         const start = editor.selectionStart;
         const end = editor.selectionEnd;
         editor.value = tab.body || '';
+        updateHighlight();
         try {
           editor.setSelectionRange(start, end);
         } catch (_) {}
       }
       updateFileStatus();
+      updateCursorStatus();
     });
 
     // Error on either side

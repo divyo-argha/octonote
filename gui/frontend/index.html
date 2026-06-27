@@ -47,6 +47,7 @@
 
   <!-- Editor area -->
   <main id="editor-area" class="editor-area" role="main">
+    <div id="editor-highlight" class="editor-highlight" aria-hidden="true"></div>
     <textarea
       id="editor"
       class="editor"
@@ -82,6 +83,13 @@
         </svg>
         <span>Share</span>
       </button>
+      <button id="btn-ontop" class="share-btn" title="Toggle Always on Top" aria-label="Toggle Always on Top">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.89A2 2 0 0 0 5 15.24Z"></path>
+        </svg>
+        <span>Pin</span>
+      </button>
+      <span id="status-words" class="status-words" aria-label="Word count">0 words</span>
       <span id="status-pos" class="status-pos" aria-label="Cursor position">Ln 1, Col 1</span>
       <span id="status-tabs" class="status-tabs" aria-label="Tab count">1 tab</span>
     </div>
