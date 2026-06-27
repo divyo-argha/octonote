@@ -1,20 +1,20 @@
 :root {
-  --col-bg:          #0f0f0f;
-  --col-surface:     #1a1a2e;
-  --col-surface-2:   #16213e;
-  --col-border:      #2d2d4e;
-  --col-border-soft: #1e1e3a;
-  --col-accent:      #7c3aed;
-  --col-accent-lt:   #a78bfa;
-  --col-accent-glow: oklch(55% 0.24 293);
-  --col-text:        #e5e7eb;
-  --col-muted:       #6b7280;
-  --col-subtle:      #9ca3af;
+  --col-bg:          #09090b;
+  --col-surface:     rgba(24, 24, 27, 0.65);
+  --col-surface-2:   rgba(39, 39, 42, 0.5);
+  --col-border:      rgba(255, 255, 255, 0.08);
+  --col-border-soft: rgba(255, 255, 255, 0.04);
+  --col-accent:      #6366f1;
+  --col-accent-lt:   #818cf8;
+  --col-accent-glow: rgba(99, 102, 241, 0.5);
+  --col-text:        #f8fafc;
+  --col-muted:       #94a3b8;
+  --col-subtle:      #cbd5e1;
   --col-success:     #10b981;
   --col-warn:        #f59e0b;
   --col-danger:      #ef4444;
-  --col-tab-active:  #7c3aed;
-  --col-tab-hover:   #2d2d4e;
+  --col-tab-active:  rgba(99, 102, 241, 0.15);
+  --col-tab-hover:   rgba(255, 255, 255, 0.06);
 
   --font-ui:     'Inter', system-ui, sans-serif;
   --font-editor: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
@@ -31,12 +31,12 @@
   --titlebar-h: 46px;
   --tabbar-h:   0px;
   --statusbar-h:34px;
-  --radius-sm:  6px;
-  --radius-md: 12px;
-  --radius-tab: 8px;
+  --radius-sm:  8px;
+  --radius-md: 14px;
+  --radius-tab: 10px;
 
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --duration: 150ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration: 200ms;
 
   color-scheme: dark;
 }
@@ -62,11 +62,24 @@ html, body {
 body {
   display: grid;
   grid-template-rows: var(--titlebar-h) 1fr var(--statusbar-h);
-  grid-template-columns: minmax(0, 1fr); /* Constrain layout width to prevent overflow */
-  border: 2px solid var(--col-accent);
-  border-radius: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: 0 0 20px rgba(124, 58, 237, 0.2);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 10% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 45%),
+    radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.1) 0%, transparent 45%),
+    radial-gradient(circle at 50% 120%, rgba(59, 130, 246, 0.15) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .sr-only {
@@ -85,6 +98,8 @@ body {
   justify-content: space-between;
   height: var(--titlebar-h);
   background: var(--col-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--col-border);
   padding: 0 var(--space-md);
   user-select: none;
@@ -195,10 +210,10 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 10px;
-  height: 28px;
-  border: 1px solid var(--col-border);
-  border-radius: 6px;
+  padding: 4px 12px;
+  height: 30px;
+  border: 1px solid var(--col-border-soft);
+  border-radius: var(--radius-sm);
   background: var(--col-surface-2);
   color: var(--col-muted);
   font-family: var(--font-ui);
@@ -217,15 +232,15 @@ body {
 
 .tab:hover:not(.tab--active) {
   background: var(--col-tab-hover);
-  color: var(--col-subtle);
-  border-color: var(--col-accent-lt);
+  color: var(--col-text);
+  border-color: rgba(255,255,255,0.15);
 }
 
 .tab--active {
-  background: var(--col-surface);
+  background: var(--col-tab-active);
   color: var(--col-text);
-  border-color: var(--col-accent);
-  box-shadow: 0 0 6px oklch(55% 0.24 293 / 15%);
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 2px 8px var(--col-accent-glow);
   z-index: 1;
   flex: 1.5; /* Current active tab is wider compared to other tabs */
   max-width: 180px;
@@ -317,8 +332,12 @@ body {
 .editor-area {
   display: flex;
   flex: 1;
-  background: var(--col-bg);
+  background: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   overflow: hidden;
+  position: relative;
+  z-index: 10;
 }
 
 .editor {
@@ -346,16 +365,17 @@ body {
   font-style: italic;
 }
 
-.editor::-webkit-scrollbar { width: 5px; }
+.editor::-webkit-scrollbar { width: 8px; }
 .editor::-webkit-scrollbar-track { background: transparent; }
 .editor::-webkit-scrollbar-thumb {
   background: var(--col-border);
   border-radius: 99px;
+  border: 2px solid var(--col-bg); /* create padding effect */
 }
 .editor::-webkit-scrollbar-thumb:hover { background: var(--col-muted); }
 
 .editor::selection {
-  background: oklch(55% 0.24 293 / 35%);
+  background: rgba(99, 102, 241, 0.3);
 }
 
 .statusbar {
@@ -364,11 +384,15 @@ body {
   justify-content: space-between;
   height: var(--statusbar-h);
   background: var(--col-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--col-border);
   padding: 0 var(--space-sm);
   font-size: var(--font-size-sm);
   color: var(--col-muted);
   gap: var(--space-sm);
+  position: relative;
+  z-index: 100;
 }
 
 .statusbar__shortcuts {
