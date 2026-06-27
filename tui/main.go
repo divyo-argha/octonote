@@ -21,17 +21,17 @@ import (
 )
 
 const (
-	colBg       = "#0f0f0f"
-	colSurface  = "#1a1a2e"
-	colBorder   = "#2d2d4e"
-	colAccent   = "#7c3aed"
-	colAccentLt = "#a78bfa"
-	colMuted    = "#6b7280"
-	colText     = "#e5e7eb"
-	colSubtle   = "#9ca3af"
+	colBg       = "#09090b"
+	colSurface  = "#18181b"
+	colBorder   = "#3f3f46"
+	colAccent   = "#6366f1"
+	colAccentLt = "#818cf8"
+	colMuted    = "#94a3b8"
+	colText     = "#f8fafc"
+	colSubtle   = "#cbd5e1"
 	colWarn     = "#f59e0b"
 	colSuccess  = "#10b981"
-	colTabBg    = "#16213e"
+	colTabBg    = "#27272a"
 	colErr      = "#ef4444"
 )
 
@@ -1231,22 +1231,28 @@ func (m model) renderLegend() string {
 		parts = append(parts, styleKey.Render(s.key)+" "+s.desc)
 	}
 
-	// Right-side save status.
+	// Right-side save status and word count.
 	idx := m.state.ActiveIndex
 	tab := m.state.Tabs[idx]
 	var saveStatus string
 	unsaved := (tab.FilePath == "" && strings.TrimSpace(m.textareas[idx].Value()) != "") ||
 		(tab.FilePath != "" && tab.FileIsDirty)
 
+	words := len(strings.Fields(m.textareas[idx].Value()))
+	wordStr := fmt.Sprintf("%d word", words)
+	if words != 1 {
+		wordStr += "s"
+	}
+
 	switch {
 	case tab.FilePath != "" && tab.FileIsDirty:
-		saveStatus = styleUnsaved.Render(fmt.Sprintf("● %s (unsaved - ^S to save)", filepath.Base(tab.FilePath)))
+		saveStatus = styleUnsaved.Render(fmt.Sprintf("%s │ ● %s (unsaved - ^S to save)", wordStr, filepath.Base(tab.FilePath)))
 	case tab.FilePath != "" && !tab.FileIsDirty:
-		saveStatus = styleSaved.Render(fmt.Sprintf("✓ %s (saved)", filepath.Base(tab.FilePath)))
+		saveStatus = styleSaved.Render(fmt.Sprintf("%s │ ✓ %s (saved)", wordStr, filepath.Base(tab.FilePath)))
 	case tab.FilePath == "" && unsaved:
-		saveStatus = styleUnsaved.Render(fmt.Sprintf("● %s (unsaved to disk - ^S to save)", tab.Title))
+		saveStatus = styleUnsaved.Render(fmt.Sprintf("%s │ ● %s (unsaved to disk - ^S to save)", wordStr, tab.Title))
 	default:
-		saveStatus = styleSaved.Render(fmt.Sprintf("✓ %s (auto-saved %s)", tab.Title, m.lastSaved.Format("15:04:05")))
+		saveStatus = styleSaved.Render(fmt.Sprintf("%s │ ✓ %s (auto-saved %s)", wordStr, tab.Title, m.lastSaved.Format("15:04:05")))
 	}
 
 	usableWidth := m.width - 2 // styleLegend has Padding(0, 1)
