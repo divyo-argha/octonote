@@ -97,13 +97,10 @@ iwr -useb https://raw.githubusercontent.com/divyo-argha/octonote/main/scripts/in
 </td>
 <td width="33%" valign="top">
 
-### NPM
+### NPM (TUI Only)
 ```bash
 # Install TUI (CLI) globally
 npm install -g octonote
-
-# Install GUI globally (Optional)
-octonote install-gui
 
 # Run TUI instantly without install
 npx octonote
@@ -112,6 +109,30 @@ npx octonote
 </td>
 </tr>
 </table>
+
+### 🖥️ Manual GUI Download (Pre-built Binaries)
+If you don't want to build from source or use NPM, you can download the GUI directly using `curl` or `wget`. Find the [latest release here](https://github.com/divyo-argha/octonote/releases/latest) or run:
+
+**macOS (Apple Silicon):**
+```bash
+curl -sSfL "https://github.com/divyo-argha/octonote/releases/latest/download/octonote-gui-darwin-arm64" -o octonote-gui && chmod +x octonote-gui && sudo mv octonote-gui /usr/local/bin/
+```
+
+**macOS (Intel):**
+```bash
+curl -sSfL "https://github.com/divyo-argha/octonote/releases/latest/download/octonote-gui-darwin-amd64" -o octonote-gui && chmod +x octonote-gui && sudo mv octonote-gui /usr/local/bin/
+```
+
+**Linux:**
+```bash
+curl -sSfL "https://github.com/divyo-argha/octonote/releases/latest/download/octonote-gui-linux" -o octonote-gui && chmod +x octonote-gui && sudo mv octonote-gui /usr/local/bin/
+```
+
+**Windows (PowerShell):**
+```powershell
+Invoke-WebRequest -Uri "https://github.com/divyo-argha/octonote/releases/latest/download/octonote-gui-windows.exe" -OutFile "$env:USERPROFILE\octonote-gui.exe"
+Write-Host "Downloaded to $env:USERPROFILE\octonote-gui.exe"
+```
 
 **Requirements:** macOS, Linux, or Windows. Go 1.22+ & Wails v2 (only if building from source).
 
