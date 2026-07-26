@@ -258,13 +258,8 @@ function setupEventListeners() {
     });
   });
 
-  // Quick Template Buttons
-  document.querySelectorAll('.tool-btn-template').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tmplName = btn.getAttribute('data-template');
-      insertTemplate(tmplName);
-    });
-  });
+  // Setup Context Menu Events
+  setupContextMenuEvents();
 
   // Theme Pills in Settings
   document.querySelectorAll('.theme-pill').forEach(pill => {
@@ -364,12 +359,10 @@ function renderTabs() {
     });
 
     // Double click to rename
-    tabEl.addEventListener('dblclick', () => {
-      const newTitle = prompt('Rename scratchpad:', tab.title);
-      if (newTitle !== null) {
-        renameTab(index, newTitle);
-      }
-    });
+    tabEl.addEventListener('dblclick', () => promptRenameTab(index));
+
+    // Right click context menu
+    tabEl.addEventListener('contextmenu', (e) => showContextMenu(e, index));
 
     tabbar.insertBefore(tabEl, btnNewTab);
   });
@@ -421,12 +414,125 @@ async function closeTab(index) {
   }
 }
 
+async function promptRenameTab(index = state.active_index) {
+  const tab = state.tabs?.[index];
+  if (!tab) return;
+
+  const currentTitle = tab.title || 'Untitled';
+  const newTitle = prompt('Rename note title:', currentTitle);
+  if (newTitle !== null && newTitle.trim() !== '' && newTitle !== currentTitle) {
+    await renameTab(index, newTitle.trim());
+    showToast(`Renamed to "${newTitle.trim()}"`);
+  }
+}
+
 async function renameTab(index, title) {
   if (window.go?.main?.App) {
     state = await window.go.main.App.RenameTab(index, title);
     renderTabs();
     renderSidebarNotes();
   }
+}
+
+async function duplicateTab(index) {
+  const activeTab = state.tabs?.[index];
+  if (!activeTab) return;
+
+  if (window.go?.main?.App) {
+    state = await window.go.main.App.NewTab();
+    const newIdx = state.tabs.length - 1;
+    state.tabs[newIdx].title = `${activeTab.title || 'Untitled'} (Copy)`;
+    state.tabs[newIdx].body = activeTab.body;
+    await window.go.main.App.SaveTab(newIdx, activeTab.body, 0);
+    await window.go.main.App.RenameTab(newIdx, `${activeTab.title || 'Untitled'} (Copy)`);
+    renderTabs();
+    renderSidebarNotes();
+    switchActiveTab(newIdx);
+    showToast(`Duplicated note`);
+  }
+}
+
+async function togglePinTab(index) {
+  if (window.go?.main?.App && state.tabs?.[index]) {
+    const isPinned = !state.tabs[index].pinned;
+    state.tabs[index].pinned = isPinned;
+    await window.go.main.App.PinTab(index, isPinned);
+    renderTabs();
+    renderSidebarNotes();
+    showToast(isPinned ? 'Pinned note' : 'Unpinned note');
+  }
+}
+
+async function closeOtherTabs(index) {
+  if (!state.tabs) return;
+  for (let i = state.tabs.length - 1; i >= 0; i--) {
+    if (i !== index && !state.tabs[i].pinned) {
+      await closeTab(i);
+    }
+  }
+}
+
+let contextMenuTargetIndex = -1;
+
+function showContextMenu(e, index) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  contextMenuTargetIndex = index;
+  const menu = document.getElementById('context-menu');
+  if (!menu) return;
+
+  const x = Math.min(e.clientX, window.innerWidth - 185);
+  const y = Math.min(e.clientY, window.innerHeight - 220);
+
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  menu.hidden = false;
+}
+
+function hideContextMenu() {
+  const menu = document.getElementById('context-menu');
+  if (menu) menu.hidden = true;
+}
+
+function setupContextMenuEvents() {
+  document.addEventListener('click', hideContextMenu);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') hideContextMenu();
+  });
+
+  document.getElementById('ctx-rename')?.addEventListener('click', () => {
+    hideContextMenu();
+    promptRenameTab(contextMenuTargetIndex);
+  });
+
+  document.getElementById('ctx-save-disk')?.addEventListener('click', () => {
+    hideContextMenu();
+    if (contextMenuTargetIndex !== -1 && contextMenuTargetIndex !== state.active_index) {
+      switchActiveTab(contextMenuTargetIndex);
+    }
+    saveActiveNoteToDisk();
+  });
+
+  document.getElementById('ctx-duplicate')?.addEventListener('click', () => {
+    hideContextMenu();
+    duplicateTab(contextMenuTargetIndex);
+  });
+
+  document.getElementById('ctx-pin')?.addEventListener('click', () => {
+    hideContextMenu();
+    togglePinTab(contextMenuTargetIndex);
+  });
+
+  document.getElementById('ctx-close-others')?.addEventListener('click', () => {
+    hideContextMenu();
+    closeOtherTabs(contextMenuTargetIndex);
+  });
+
+  document.getElementById('ctx-close')?.addEventListener('click', () => {
+    hideContextMenu();
+    closeTab(contextMenuTargetIndex);
+  });
 }
 
 // ── Sidebar Explorer ──────────────────────────────────────────────────────────
@@ -457,11 +563,19 @@ function renderSidebarNotes() {
         <span class="note-item-title">${escapeHtml(tab.title || 'Untitled')}</span>
         ${tab.pinned ? '📌' : ''}
         ${dirtyTagHtml}
+        <button class="note-rename-mini-btn" title="Rename Note">✏️</button>
       </div>
       <div class="note-item-sub">${locationSub} • ${wordCount} words • ${tab.body.length} chars</div>
     `;
 
+    card.querySelector('.note-rename-mini-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      promptRenameTab(index);
+    });
+
     card.addEventListener('click', () => switchActiveTab(index));
+    card.addEventListener('dblclick', () => promptRenameTab(index));
+    card.addEventListener('contextmenu', (e) => showContextMenu(e, index));
     sidebarNotesList.appendChild(card);
   });
 }
@@ -946,7 +1060,8 @@ async function insertTemplate(name) {
 function getBuiltinCommands() {
   const cmds = [
     { id: 'new-tab', title: 'New Scratchpad Tab', shortcut: 'Ctrl+N', action: createNewTab },
-    { id: 'save-to-disk', title: 'Save Active Note to Disk File...', shortcut: 'Ctrl+S', action: promptSaveToDisk },
+    { id: 'rename-note', title: 'Rename Active Note Title', shortcut: 'F2', action: () => promptRenameTab(state.active_index) },
+    { id: 'save-to-disk', title: 'Save Active Note to Disk File...', shortcut: 'Ctrl+S', action: saveActiveNoteToDisk },
     { id: 'close-tab', title: 'Close Active Tab', shortcut: 'Ctrl+W', action: () => closeTab(state.active_index) },
     { id: 'toggle-sidebar', title: 'Toggle Notes Sidebar', shortcut: 'Ctrl+B', action: toggleSidebar },
     { id: 'toggle-preview', title: 'Toggle Split Markdown Preview', shortcut: 'Ctrl+M', action: togglePreview },
@@ -1034,7 +1149,10 @@ function handleCommandPaletteKeydown(e) {
 function handleGlobalKeydown(e) {
   const isCmdOrCtrl = e.metaKey || e.ctrlKey;
 
-  if (isCmdOrCtrl && e.key.toLowerCase() === 'p') {
+  if (e.key === 'F2') {
+    e.preventDefault();
+    promptRenameTab(state.active_index);
+  } else if (isCmdOrCtrl && e.key.toLowerCase() === 'p') {
     e.preventDefault();
     showCommandPalette();
   } else if (isCmdOrCtrl && e.key.toLowerCase() === 's') {
