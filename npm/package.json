@@ -1,6 +1,6 @@
 {
   "name": "octonote",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Lightweight multi-tab auto-saving scratchpad — TUI for your terminal",
   "keywords": [
     "scratchpad",
@@ -26,11 +26,11 @@
   },
   "scripts": {},
   "optionalDependencies": {
-    "@divyo-argha/octonote-linux-x64": "1.4.0",
-    "@divyo-argha/octonote-linux-arm64": "1.4.0",
-    "@divyo-argha/octonote-darwin-x64": "1.4.0",
-    "@divyo-argha/octonote-darwin-arm64": "1.4.0",
-    "@divyo-argha/octonote-windows-x64": "1.4.0"
+    "@divyo-argha/octonote-linux-x64": "1.4.1",
+    "@divyo-argha/octonote-linux-arm64": "1.4.1",
+    "@divyo-argha/octonote-darwin-x64": "1.4.1",
+    "@divyo-argha/octonote-darwin-arm64": "1.4.1",
+    "@divyo-argha/octonote-windows-x64": "1.4.1"
   },
   "engines": {
     "node": ">=18.0.0"
