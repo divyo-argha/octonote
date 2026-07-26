@@ -373,6 +373,47 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════
+       UNLOCK MODAL (Shown on start if file is encrypted)
+       ═══════════════════════════════════════════════════════════════ -->
+  <div id="unlock-modal" class="open-modal" role="dialog" aria-modal="true" aria-label="Unlock octoNote" hidden style="z-index:9999;">
+    <div class="open-modal__backdrop" style="background:var(--col-bg)"></div>
+    <div class="open-modal__panel">
+      <div class="open-modal__header">
+        <span class="open-modal__title">🔒 Storage Locked</span>
+      </div>
+      <p class="share-hint">Your state file is encrypted.</p>
+      <input id="unlock-password-input" class="share-code-input" type="password"
+        placeholder="Enter password"
+        autocomplete="off" spellcheck="false" aria-label="Decryption password" />
+      <p id="unlock-modal-err" class="share-error" hidden></p>
+      <div class="open-modal__actions">
+        <button id="unlock-modal-confirm" class="share-confirm-btn">Unlock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       SET PASSWORD MODAL
+       ═══════════════════════════════════════════════════════════════ -->
+  <div id="setpass-modal" class="open-modal" role="dialog" aria-modal="true" aria-label="Set Password" hidden>
+    <div class="open-modal__backdrop"></div>
+    <div class="open-modal__panel">
+      <div class="open-modal__header">
+        <span class="open-modal__title">Enable Encryption</span>
+        <button id="setpass-modal-close" class="share-modal__close" aria-label="Close">×</button>
+      </div>
+      <label class="share-label" for="setpass-password-input">New Password</label>
+      <input id="setpass-password-input" class="share-code-input" type="password"
+        placeholder="Minimum 4 characters"
+        autocomplete="off" spellcheck="false" aria-label="New encryption password" />
+      <p id="setpass-modal-err" class="share-error" hidden></p>
+      <div class="open-modal__actions">
+        <button id="setpass-modal-confirm" class="share-confirm-btn">Enable</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
        SETTINGS PANEL
        ═══════════════════════════════════════════════════════════════ -->
   <div id="settings-panel" class="settings-panel" role="dialog" aria-modal="true" aria-label="Settings" hidden>
@@ -467,6 +508,17 @@
               <input type="checkbox" id="setting-activeline" checked />
               <span class="toggle__slider"></span>
             </label>
+          </div>
+        </section>
+        <!-- Security section -->
+        <section aria-labelledby="section-security">
+          <p class="settings-section__title" id="section-security">Security</p>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row__label">State Encryption</div>
+              <div class="settings-row__desc">Encrypt local data at rest</div>
+            </div>
+            <button id="btn-settings-encryption" class="share-btn">Enable</button>
           </div>
         </section>
 

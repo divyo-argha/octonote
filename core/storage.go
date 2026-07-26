@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,8 @@ import (
 	"time"
 	"unicode"
 )
+
+var ErrEncrypted = errors.New("octonote: state file is encrypted")
 
 const (
 	currentStateVersion = 2
@@ -45,6 +48,10 @@ type Storage struct {
 	lastErr       error
 	done          chan struct{}
 	lastWriteTime time.Time
+
+	encMu       sync.RWMutex
+	password    string
+	isEncrypted bool
 }
 
 func StateDir() (string, error) {
@@ -82,6 +89,30 @@ func (s *Storage) Load() (State, error) {
 	}
 	if err != nil {
 		return State{}, fmt.Errorf("octonote: read state: %w", err)
+	}
+
+	s.encMu.RLock()
+	pwd := s.password
+	s.encMu.RUnlock()
+
+	if IsEncrypted(data) {
+		s.encMu.Lock()
+		s.isEncrypted = true
+		s.encMu.Unlock()
+
+		if pwd == "" {
+			return State{}, ErrEncrypted
+		}
+		
+		decrypted, err := Decrypt(data, pwd)
+		if err != nil {
+			return State{}, fmt.Errorf("octonote: decrypt failed: %w", err)
+		}
+		data = decrypted
+	} else {
+		s.encMu.Lock()
+		s.isEncrypted = false
+		s.encMu.Unlock()
 	}
 
 	var st State
@@ -162,6 +193,20 @@ func (s *Storage) atomicWrite(st State) {
 		return
 	}
 
+	s.encMu.RLock()
+	pwd := s.password
+	isEnc := s.isEncrypted
+	s.encMu.RUnlock()
+
+	if isEnc && pwd != "" {
+		encData, err := Encrypt(data, pwd)
+		if err != nil {
+			s.setErr(fmt.Errorf("octonote: encrypt failed: %w", err))
+			return
+		}
+		data = encData
+	}
+
 	tmp := s.file + ".tmp"
 	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
@@ -206,6 +251,31 @@ func (s *Storage) setErr(err error) {
 	s.mu.Lock()
 	s.lastErr = err
 	s.mu.Unlock()
+}
+
+// SetPassword configures the storage password and returns true if it successfully decrypted the file.
+func (s *Storage) SetPassword(password string) bool {
+	s.encMu.Lock()
+	s.password = password
+	s.encMu.Unlock()
+
+	// Verify if the password works
+	_, err := s.Load()
+	return err == nil
+}
+
+// SetEncrypted toggles whether the state file should be encrypted going forward.
+func (s *Storage) SetEncrypted(encrypted bool) {
+	s.encMu.Lock()
+	s.isEncrypted = encrypted
+	s.encMu.Unlock()
+}
+
+// IsEncryptedFile returns true if the current state file on disk is encrypted.
+func (s *Storage) IsEncryptedFile() bool {
+	s.encMu.RLock()
+	defer s.encMu.RUnlock()
+	return s.isEncrypted
 }
 
 // Watch blocks and polls state.json every 500ms. It calls onChange

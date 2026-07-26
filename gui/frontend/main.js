@@ -1569,11 +1569,20 @@ function hello() {
 async function init() {
   loadSettings();
   try {
-    state = await window.go.main.App.GetState();
-    const isFirstRun = state.tabs.length === 1 && !state.tabs[0].body;
-    renderTabs();
-    loadActiveTabIntoEditor();
-    await maybeShowOnboarding(isFirstRun);
+    const locked = await window.go.main.App.IsLocked();
+    if (locked) {
+      showUnlockModal();
+    } else {
+      state = await window.go.main.App.GetState();
+      const isFirstRun = state.tabs.length === 1 && !state.tabs[0].body;
+      renderTabs();
+      loadActiveTabIntoEditor();
+      await maybeShowOnboarding(isFirstRun);
+    }
+    
+    // Bind encryption settings
+    const isEnc = await window.go.main.App.IsEncryptionEnabled();
+    updateEncryptionBtn(isEnc);
   } catch (err) {
     console.error('octoNote: failed to load state', err);
     renderFallback();
@@ -1673,6 +1682,96 @@ const btnCopyCode        = document.getElementById('btn-copy-code');
 const btnGenerateCode    = document.getElementById('btn-generate-code');
 const btnCancelShare     = document.getElementById('btn-cancel-share');
 const shareHostStatus    = document.getElementById('share-host-status');
+
+// ── Encryption UI ─────────────────────────────────────────────────────────────
+
+const unlockModal = document.getElementById('unlock-modal');
+const unlockPassInput = document.getElementById('unlock-password-input');
+const unlockConfirm = document.getElementById('unlock-modal-confirm');
+const unlockErr = document.getElementById('unlock-modal-err');
+
+function showUnlockModal() {
+  unlockModal.hidden = false;
+  unlockPassInput.value = '';
+  unlockErr.hidden = true;
+  unlockPassInput.focus();
+}
+
+async function handleUnlock() {
+  const pwd = unlockPassInput.value;
+  if (!pwd) return;
+  const err = await window.go.main.App.UnlockState(pwd);
+  if (err) {
+    unlockErr.textContent = err;
+    unlockErr.hidden = false;
+  } else {
+    unlockModal.hidden = true;
+    // state:changed will fire, but let's re-init safely
+    state = await window.go.main.App.GetState();
+    renderTabs();
+    loadActiveTabIntoEditor();
+  }
+}
+
+unlockConfirm.addEventListener('click', handleUnlock);
+unlockPassInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') handleUnlock();
+});
+
+const setpassModal = document.getElementById('setpass-modal');
+const setpassInput = document.getElementById('setpass-password-input');
+const setpassConfirm = document.getElementById('setpass-modal-confirm');
+const setpassClose = document.getElementById('setpass-modal-close');
+const setpassErr = document.getElementById('setpass-modal-err');
+const btnSettingsEnc = document.getElementById('btn-settings-encryption');
+
+function updateEncryptionBtn(isEnc) {
+  if (isEnc) {
+    btnSettingsEnc.textContent = 'Disable';
+    btnSettingsEnc.classList.add('context-menu__item--danger'); // reuse red style
+  } else {
+    btnSettingsEnc.textContent = 'Enable';
+    btnSettingsEnc.classList.remove('context-menu__item--danger');
+  }
+}
+
+btnSettingsEnc.addEventListener('click', async () => {
+  const isEnc = await window.go.main.App.IsEncryptionEnabled();
+  if (isEnc) {
+    await window.go.main.App.DisableEncryption();
+    updateEncryptionBtn(false);
+    showToast('Encryption disabled');
+  } else {
+    settingsPanel.hidden = true;
+    setpassModal.hidden = false;
+    setpassInput.value = '';
+    setpassErr.hidden = true;
+    setpassInput.focus();
+  }
+});
+
+setpassClose.addEventListener('click', () => setpassModal.hidden = true);
+setpassConfirm.addEventListener('click', async () => {
+  const pwd = setpassInput.value;
+  if (pwd.length < 4) {
+    setpassErr.textContent = 'Minimum 4 characters required.';
+    setpassErr.hidden = false;
+    return;
+  }
+  const err = await window.go.main.App.EnableEncryption(pwd);
+  if (err) {
+    setpassErr.textContent = err;
+    setpassErr.hidden = false;
+  } else {
+    setpassModal.hidden = true;
+    updateEncryptionBtn(true);
+    showToast('Encryption enabled. State file is now secured.');
+  }
+});
+setpassInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') setpassConfirm.click();
+  if (e.key === 'Escape') setpassModal.hidden = true;
+});
 const shareSenderName    = document.getElementById('share-sender-name');
 const sharePreviewTitle  = document.getElementById('share-preview-title');
 const shareSenderChip    = document.getElementById('share-sender-chip');

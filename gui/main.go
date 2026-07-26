@@ -75,25 +75,41 @@ func main() {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	st, err := a.storage.Load()
-	if err != nil {
+	if err == core.ErrEncrypted {
+		a.mu.Lock()
+		a.isLocked = true
+		a.state = core.State{}
+		a.mu.Unlock()
+	} else if err != nil {
 		st = core.State{
-			Version:     1,
+			Version:     2,
 			ActiveIndex: 0,
 			Tabs:        []core.Tab{core.NewTab("scratch")},
 		}
+		a.mu.Lock()
+		a.state = st
+		a.mu.Unlock()
+	} else {
+		a.mu.Lock()
+		a.state = st
+		a.mu.Unlock()
 	}
-	a.state = st
 
 	// Watch state.json for external modifications and push updates to the UI
 	go a.storage.Watch(ctx, func() {
 		a.mu.Lock()
+		if a.isLocked {
+			a.mu.Unlock()
+			return
+		}
+		a.mu.Unlock()
+
 		newSt, err := a.storage.Load()
 		if err == nil {
+			a.mu.Lock()
 			a.state = newSt
 			a.mu.Unlock()
 			a.emitStateChange()
-		} else {
-			a.mu.Unlock()
 		}
 	})
 }

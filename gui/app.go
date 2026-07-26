@@ -20,10 +20,12 @@ type shareSession struct {
 }
 
 type App struct {
-	ctx     context.Context
-	storage *core.Storage
-	state   core.State
-	mu      sync.Mutex
+	ctx      context.Context
+	storage  *core.Storage
+	state    core.State
+	mu       sync.Mutex
+	isLocked bool // true if waiting for decryption password
+
 
 	// share session — only one active at a time
 	shareMu  sync.Mutex
@@ -116,6 +118,65 @@ func (a *App) RenameTab(index int, title string) core.State {
 	a.state.Tabs[index].UpdatedAt = time.Now()
 	a.storage.Save(a.state)
 	return a.state
+}
+
+// ── Encryption API ────────────────────────────────────────────────────────────
+
+// IsLocked returns true if the state file requires a password to unlock.
+func (a *App) IsLocked() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.isLocked
+}
+
+// UnlockState attempts to decrypt the storage. Returns error string if failed.
+func (a *App) UnlockState(password string) string {
+	if !a.storage.SetPassword(password) {
+		return "Incorrect password"
+	}
+
+	st, err := a.storage.Load()
+	if err != nil {
+		return err.Error()
+	}
+
+	a.mu.Lock()
+	a.isLocked = false
+	a.state = st
+	a.mu.Unlock()
+
+	a.emitStateChange()
+	return ""
+}
+
+// EnableEncryption sets a new password and encrypts the file on next save.
+func (a *App) EnableEncryption(password string) string {
+	if len(password) < 4 {
+		return "Password too short"
+	}
+	a.storage.SetPassword(password)
+	a.storage.SetEncrypted(true)
+	
+	a.mu.Lock()
+	a.storage.Save(a.state)
+	a.mu.Unlock()
+	return ""
+}
+
+// DisableEncryption removes the password and saves the file in plaintext.
+func (a *App) DisableEncryption() string {
+	a.storage.SetPassword("")
+	a.storage.SetEncrypted(false)
+	
+	a.mu.Lock()
+	a.storage.Save(a.state)
+	a.mu.Unlock()
+	return ""
+}
+
+// IsEncryptionEnabled returns whether the file is currently set to encrypt.
+func (a *App) IsEncryptionEnabled() bool {
+	return a.storage.IsEncryptedFile()
 }
 
 // ── New v2.0 API methods ───────────────────────────────────────────────────────

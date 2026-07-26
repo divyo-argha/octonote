@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ncruces/zenity"
 	"github.com/nottaker/octonote/core"
+	"golang.org/x/term"
 )
 
 const (
@@ -1493,6 +1495,20 @@ func main() {
 	defer s.Close()
 
 	st, err := s.Load()
+	if err == core.ErrEncrypted {
+		fmt.Print("Storage is encrypted. Password: ")
+		bytePassword, perr := term.ReadPassword(int(syscall.Stdin))
+		fmt.Println()
+		if perr != nil {
+			fmt.Fprintf(os.Stderr, "octonote: failed to read password: %v\n", perr)
+			os.Exit(1)
+		}
+		if !s.SetPassword(string(bytePassword)) {
+			fmt.Fprintf(os.Stderr, "octonote: incorrect password\n")
+			os.Exit(1)
+		}
+		st, err = s.Load()
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "octonote: load state: %v\n", err)
 		os.Exit(1)
