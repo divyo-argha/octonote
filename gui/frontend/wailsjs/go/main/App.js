@@ -74,6 +74,10 @@ export function PinTab(arg1, arg2) {
   return window['go']['main']['App']['PinTab'](arg1, arg2);
 }
 
+export function PromptSaveFileDialog(arg1, arg2) {
+  return window['go']['main']['App']['PromptSaveFileDialog'](arg1, arg2);
+}
+
 export function RenameTab(arg1, arg2) {
   return window['go']['main']['App']['RenameTab'](arg1, arg2);
 }

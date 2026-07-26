@@ -933,6 +933,90 @@ html, body {
   flex-shrink: 0;
 }
 
+/* ── Version History ─────────────────────────────────────────────────────────── */
+
+.sidebar-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-item-card {
+  background: var(--col-bg);
+  border: 1px solid var(--col-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.history-item-card:hover {
+  border-color: var(--col-border-bright);
+  background: var(--col-surface-hover);
+}
+
+.history-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.history-item-time {
+  color: var(--col-accent-lt);
+}
+
+.history-item-meta {
+  color: var(--col-text-muted);
+  font-size: 10px;
+}
+
+.history-item-preview {
+  font-size: 11px;
+  color: var(--col-text-subtle);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+.history-item-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.history-btn {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--col-border);
+  background: var(--col-surface);
+  color: var(--col-text);
+  transition: all 0.15s ease;
+}
+
+.history-btn--restore {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: var(--col-accent-lt);
+}
+
+.history-btn--restore:hover {
+  background: var(--col-accent);
+  color: #ffffff;
+}
+
+.history-btn--copy:hover {
+  background: var(--col-surface-hover);
+}
+
 .note-dirty-tag {
   font-size: 9px;
   font-weight: 700;

@@ -459,6 +459,55 @@ func (a *App) OpenFile(path string) map[string]interface{} {
 	return map[string]interface{}{"error": "", "content": content}
 }
 
+// PromptSaveFileDialog opens OS native file save dialog and saves tab content.
+func (a *App) PromptSaveFileDialog(tabIndex int, content string) string {
+	a.mu.Lock()
+	if tabIndex < 0 || tabIndex >= len(a.state.Tabs) {
+		a.mu.Unlock()
+		return "invalid tab index"
+	}
+	tab := a.state.Tabs[tabIndex]
+	a.mu.Unlock()
+
+	defaultFilename := sanitiseFilename(tab.Title)
+	if defaultFilename == "" {
+		defaultFilename = "scratchpad"
+	}
+	if !strings.HasSuffix(defaultFilename, ".md") && !strings.HasSuffix(defaultFilename, ".txt") {
+		defaultFilename += ".md"
+	}
+
+	selectedPath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Save Note to Disk File",
+		DefaultFilename: defaultFilename,
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Markdown Files (*.md)", Pattern: "*.md"},
+			{DisplayName: "Text Files (*.txt)", Pattern: "*.txt"},
+			{DisplayName: "All Files (*.*)", Pattern: "*.*"},
+		},
+	})
+
+	if err != nil || selectedPath == "" {
+		return "cancelled"
+	}
+
+	if err := core.SaveFile(selectedPath, content); err != nil {
+		return fmt.Sprintf("failed to save file: %v", err)
+	}
+
+	a.mu.Lock()
+	if tabIndex >= 0 && tabIndex < len(a.state.Tabs) {
+		a.state.Tabs[tabIndex].FilePath = selectedPath
+		a.state.Tabs[tabIndex].FileIsDirty = false
+		a.state.Tabs[tabIndex].Body = content
+		a.state.Tabs[tabIndex].UpdatedAt = time.Now()
+		a.storage.Save(a.state)
+	}
+	a.mu.Unlock()
+
+	return selectedPath
+}
+
 // SaveFileAs writes content to path and records the file path on the active tab.
 func (a *App) SaveFileAs(tabIndex int, path, content string) string {
 	if err := core.SaveFile(path, content); err != nil {

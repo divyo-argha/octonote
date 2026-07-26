@@ -205,6 +205,10 @@ function setupEventListeners() {
       const targetView = tabBtn.getAttribute('data-view');
       tabBtn.classList.add('sidebar-tab--active');
       document.getElementById('view-' + targetView).classList.add('sidebar-view--active');
+
+      if (targetView === 'history') {
+        renderVersionHistory();
+      }
     });
   });
 
@@ -232,7 +236,8 @@ function setupEventListeners() {
   btnReplaceOne.addEventListener('click', replaceCurrentMatch);
   btnReplaceAll.addEventListener('click', replaceAllMatches);
 
-  // Removed btnLockToggle
+  // Titlebar Save & Preview & Zen Buttons
+  document.getElementById('btn-save-disk')?.addEventListener('click', saveActiveNoteToDisk);
   btnPreview.addEventListener('click', togglePreview);
   btnZen.addEventListener('click', toggleZenMode);
 
@@ -517,6 +522,7 @@ function triggerAutoSave() {
       if (state.tabs[activeIdx]) {
         state.tabs[activeIdx].file_is_dirty = false;
       }
+      captureSnapshot();
       if (activeIdx === state.active_index) {
         statusSaveText.textContent = 'Saved';
         statusSave.classList.add('status-indicator--saved');
@@ -616,14 +622,66 @@ function updateFileLocationUI(tab) {
   }
 }
 
+async function saveActiveNoteToDisk() {
+  const activeIdx = state.active_index;
+  const activeTab = state.tabs?.[activeIdx];
+  if (!activeTab) return;
+
+  const currentContent = editor.value;
+
+  // Case 1: File path already set -> Save directly to disk file
+  if (activeTab.file_path) {
+    if (window.go?.main?.App?.SaveCurrentFile) {
+      const err = await window.go.main.App.SaveCurrentFile(activeIdx, currentContent);
+      if (err) {
+        showToast(`Save Error: ${err}`);
+        return;
+      }
+      activeTab.file_is_dirty = false;
+      showToast(`Saved to ${activeTab.file_path.split('/').pop() || activeTab.file_path}`);
+      renderTabs();
+      renderSidebarNotes();
+      updateEditorContent();
+      captureSnapshot();
+    } else {
+      activeTab.file_is_dirty = false;
+      showToast(`Saved file`);
+      renderTabs();
+      renderSidebarNotes();
+      updateEditorContent();
+      captureSnapshot();
+    }
+    return;
+  }
+
+  // Case 2: No file path set -> Open native OS Save File Dialog or fallback
+  if (window.go?.main?.App?.PromptSaveFileDialog) {
+    const res = await window.go.main.App.PromptSaveFileDialog(activeIdx, currentContent);
+    if (res && res !== 'cancelled' && !res.startsWith('invalid') && !res.startsWith('failed')) {
+      activeTab.file_path = res;
+      activeTab.file_is_dirty = false;
+      showToast(`Saved to ${res.split('/').pop() || res}`);
+      renderTabs();
+      renderSidebarNotes();
+      updateEditorContent();
+      captureSnapshot();
+      return;
+    } else if (res === 'cancelled') {
+      return;
+    }
+  }
+
+  // Fallback if Wails dialog not available
+  promptSaveToDisk();
+}
+
 async function promptSaveToDisk() {
   const activeTab = state.tabs?.[state.active_index];
   if (!activeTab) return;
 
   const defaultName = (activeTab.title || 'scratchpad').replace(/[^a-zA-Z0-9_-]/g, '_') + '.md';
-  const defaultPath = `/Users/${window.navigator.userAgent.includes('Mac') ? 'user' : 'User'}/Documents/${defaultName}`;
 
-  const path = prompt('Enter permanent file path to save on disk:', activeTab.file_path || defaultPath);
+  const path = prompt('Enter permanent file path to save on disk:', activeTab.file_path || defaultName);
   if (!path) return;
 
   if (window.go?.main?.App?.SaveFileAs) {
@@ -639,6 +697,7 @@ async function promptSaveToDisk() {
       renderTabs();
       renderSidebarNotes();
       updateEditorContent();
+      captureSnapshot();
     } catch (e) {
       showToast(`Save failed: ${e}`);
     }
@@ -649,7 +708,97 @@ async function promptSaveToDisk() {
     renderTabs();
     renderSidebarNotes();
     updateEditorContent();
+    captureSnapshot();
   }
+}
+
+// ── Version History Snapshots ───────────────────────────────────────────────
+
+function captureSnapshot() {
+  const activeTab = state.tabs?.[state.active_index];
+  if (!activeTab || !activeTab.body) return;
+
+  activeTab.history = activeTab.history || [];
+  const lastSnap = activeTab.history[activeTab.history.length - 1];
+
+  // Avoid duplicate snapshots if content hasn't changed
+  if (lastSnap && lastSnap.body === activeTab.body) return;
+
+  const words = activeTab.body.trim() ? activeTab.body.trim().split(/\s+/).filter(Boolean).length : 0;
+  const chars = activeTab.body.length;
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  activeTab.history.push({
+    id: Date.now(),
+    time: timeStr,
+    body: activeTab.body,
+    words: words,
+    chars: chars
+  });
+
+  if (activeTab.history.length > 25) {
+    activeTab.history.shift();
+  }
+
+  const historyView = document.getElementById('view-history');
+  if (historyView && historyView.classList.contains('sidebar-view--active')) {
+    renderVersionHistory();
+  }
+}
+
+function renderVersionHistory() {
+  const container = document.getElementById('sidebar-history-list');
+  if (!container) return;
+
+  container.innerHTML = '';
+  const activeTab = state.tabs?.[state.active_index];
+  if (!activeTab || !activeTab.history || activeTab.history.length === 0) {
+    container.innerHTML = `
+      <div class="sidebar-empty-state" style="padding:16px 8px; text-align:center; color:var(--col-text-muted); font-size:12px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:8px; opacity:0.5;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <p>No edit snapshots for this note yet.</p>
+        <p style="font-size:10px; margin-top:4px; opacity:0.7;">Snapshots are saved automatically as you write!</p>
+      </div>
+    `;
+    return;
+  }
+
+  const reversedHistory = [...activeTab.history].reverse();
+
+  reversedHistory.forEach((snap) => {
+    const card = document.createElement('div');
+    card.className = 'history-item-card';
+
+    const snippet = snap.body.substring(0, 70).replace(/\n/g, ' ') + (snap.body.length > 70 ? '…' : '');
+
+    card.innerHTML = `
+      <div class="history-item-header">
+        <span class="history-item-time">⏱ ${escapeHtml(snap.time)}</span>
+        <span class="history-item-meta">${snap.words}w • ${snap.chars}c</span>
+      </div>
+      <div class="history-item-preview">${escapeHtml(snippet || '(Empty note)')}</div>
+      <div class="history-item-actions">
+        <button class="history-btn history-btn--restore" title="Restore this version">↺ Restore</button>
+        <button class="history-btn history-btn--copy" title="Copy version text">📋 Copy</button>
+      </div>
+    `;
+
+    card.querySelector('.history-btn--restore').addEventListener('click', () => {
+      if (confirm(`Restore version from ${snap.time}? Current edits will be replaced.`)) {
+        editor.value = snap.body;
+        handleEditorInput();
+        showToast(`Restored version from ${snap.time}`);
+      }
+    });
+
+    card.querySelector('.history-btn--copy').addEventListener('click', () => {
+      navigator.clipboard.writeText(snap.body);
+      showToast(`Copied snapshot to clipboard!`);
+    });
+
+    container.appendChild(card);
+  });
 }
 
 function updateLineNumbers() {
@@ -890,7 +1039,7 @@ function handleGlobalKeydown(e) {
     showCommandPalette();
   } else if (isCmdOrCtrl && e.key.toLowerCase() === 's') {
     e.preventDefault();
-    promptSaveToDisk();
+    saveActiveNoteToDisk();
   } else if (isCmdOrCtrl && e.key.toLowerCase() === 'b') {
     e.preventDefault();
     toggleSidebar();
