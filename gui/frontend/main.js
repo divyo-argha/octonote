@@ -328,14 +328,15 @@ function renderTabs() {
 
   state.tabs.forEach((tab, index) => {
     const tabEl = document.createElement('button');
-    tabEl.className = `tab ${index === state.active_index ? 'tab--active' : ''}`;
+    const dirtyClass = tab.file_is_dirty ? 'tab--dirty' : '';
+    tabEl.className = `tab ${index === state.active_index ? 'tab--active' : ''} ${dirtyClass}`;
     tabEl.setAttribute('role', 'tab');
     tabEl.setAttribute('aria-selected', index === state.active_index ? 'true' : 'false');
     tabEl.style.setProperty('--wails-draggable', 'no-drag');
 
     let titleText = tab.title || `tab ${index + 1}`;
     let pinHtml = tab.pinned ? '<svg class="tab__pin-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5v6l1 1 1-1v-6h5v-2l-2-2z"/></svg>' : '';
-    let dirtyHtml = tab.file_is_dirty ? '<span class="tab__dirty-dot"></span>' : '';
+    let dirtyHtml = tab.file_is_dirty ? '<span class="tab__dirty-dot" title="Unsaved changes"></span>' : '';
 
     tabEl.innerHTML = `
       ${pinHtml}
@@ -434,14 +435,17 @@ function renderSidebarNotes() {
     }
 
     const card = document.createElement('div');
-    card.className = `note-item-card ${index === state.active_index ? 'note-item-card--active' : ''}`;
+    const dirtyCardClass = tab.file_is_dirty ? 'note-item-card--dirty' : '';
+    card.className = `note-item-card ${index === state.active_index ? 'note-item-card--active' : ''} ${dirtyCardClass}`;
     
     const wordCount = tab.body ? tab.body.trim().split(/\s+/).filter(Boolean).length : 0;
+    const dirtyTagHtml = tab.file_is_dirty ? '<span class="note-dirty-tag">Unsaved</span>' : '';
 
     card.innerHTML = `
       <div class="note-item-header">
         <span class="note-item-title">${escapeHtml(tab.title || 'Untitled')}</span>
         ${tab.pinned ? '📌' : ''}
+        ${dirtyTagHtml}
       </div>
       <div class="note-item-sub">${wordCount} words • ${tab.body.length} chars</div>
     `;
@@ -473,12 +477,16 @@ function updateEditorContent() {
 
   updateLineNumbers();
   updateCursorPosAndMetrics();
+  updateEditorDirtyUI(!!activeTab.file_is_dirty);
   if (isPreviewOpen) renderMarkdownPreview();
 }
 
 function handleEditorInput() {
   if (state.tabs && state.tabs[state.active_index]) {
     state.tabs[state.active_index].body = editor.value;
+    state.tabs[state.active_index].file_is_dirty = true;
+    updateTabDirtyState(state.active_index, true);
+    updateEditorDirtyUI(true, 'unsaved');
   }
   updateLineNumbers();
   updateCursorPosAndMetrics();
@@ -489,6 +497,7 @@ function handleEditorInput() {
 function triggerAutoSave() {
   statusSaveText.textContent = 'Saving…';
   statusSave.classList.remove('status-indicator--saved');
+  updateEditorDirtyUI(true, 'saving');
 
   const activeIdx = state.active_index;
   const currentBody = editor.value;
@@ -496,14 +505,82 @@ function triggerAutoSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     if (window.go?.main?.App && state.tabs[activeIdx]) {
-      const lines = currentBody.substr(0, editor.selectionStart || 0).split('\n');
+      const lines = currentBody.substring(0, editor.selectionStart || 0).split('\n');
       const cursorLine = lines.length - 1;
 
       await window.go.main.App.SaveTab(activeIdx, currentBody, cursorLine);
-      statusSaveText.textContent = 'Saved';
-      statusSave.classList.add('status-indicator--saved');
+      if (state.tabs[activeIdx]) {
+        state.tabs[activeIdx].file_is_dirty = false;
+      }
+      if (activeIdx === state.active_index) {
+        statusSaveText.textContent = 'Saved';
+        statusSave.classList.add('status-indicator--saved');
+        updateTabDirtyState(activeIdx, false);
+        updateEditorDirtyUI(false);
+      }
     }
   }, 300);
+}
+
+function updateTabDirtyState(index, isDirty) {
+  const tabs = tabbar.querySelectorAll('.tab:not(.tab--new)');
+  const tabEl = tabs[index];
+  if (!tabEl) return;
+
+  tabEl.classList.toggle('tab--dirty', isDirty);
+  let dirtyDot = tabEl.querySelector('.tab__dirty-dot');
+
+  if (isDirty) {
+    if (!dirtyDot) {
+      dirtyDot = document.createElement('span');
+      dirtyDot.className = 'tab__dirty-dot';
+      dirtyDot.title = 'Unsaved changes';
+      const closeBtn = tabEl.querySelector('.tab__close');
+      if (closeBtn) {
+        tabEl.insertBefore(dirtyDot, closeBtn);
+      } else {
+        tabEl.appendChild(dirtyDot);
+      }
+    }
+  } else {
+    if (dirtyDot) {
+      dirtyDot.remove();
+    }
+  }
+}
+
+let savedBadgeTimer = null;
+
+function updateEditorDirtyUI(isDirty, status = 'unsaved') {
+  let dirtyBadge = document.getElementById('editor-dirty-badge');
+  if (!dirtyBadge) {
+    dirtyBadge = document.createElement('div');
+    dirtyBadge.id = 'editor-dirty-badge';
+    dirtyBadge.className = 'editor-dirty-badge';
+    editorMain.prepend(dirtyBadge);
+  }
+
+  clearTimeout(savedBadgeTimer);
+
+  if (isDirty) {
+    editorMain.classList.add('editor-main--dirty');
+    dirtyBadge.classList.remove('editor-dirty-badge--saved');
+    dirtyBadge.hidden = false;
+    if (status === 'saving') {
+      dirtyBadge.innerHTML = `<span class="dirty-badge-dot dirty-badge-dot--saving"></span> Saving…`;
+    } else {
+      dirtyBadge.innerHTML = `<span class="dirty-badge-dot dirty-badge-dot--unsaved"></span> Unsaved`;
+    }
+  } else {
+    editorMain.classList.remove('editor-main--dirty');
+    dirtyBadge.classList.add('editor-dirty-badge--saved');
+    dirtyBadge.innerHTML = `<span class="dirty-badge-dot dirty-badge-dot--saved"></span> Saved`;
+    dirtyBadge.hidden = false;
+
+    savedBadgeTimer = setTimeout(() => {
+      dirtyBadge.hidden = true;
+    }, 1500);
+  }
 }
 
 function updateLineNumbers() {
