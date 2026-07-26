@@ -542,6 +542,12 @@ function updateCursorPosAndMetrics() {
   if (metricChars) metricChars.textContent = chars;
   if (metricLines) metricLines.textContent = lineCount;
 
+  // Update real-time counts in the sidebar Notes Explorer
+  const activeSidebarNoteSub = document.querySelector('.note-item-card--active .note-item-sub');
+  if (activeSidebarNoteSub) {
+    activeSidebarNoteSub.textContent = `${words} words • ${chars} chars`;
+  }
+
   // Reading time
   const readingSec = Math.ceil((words / 200) * 60);
   const readingText = readingSec >= 60 ? `${Math.floor(readingSec / 60)} min read` : `${readingSec} sec read`;
