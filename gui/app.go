@@ -1,8 +1,12 @@
 package main
 
 import (
+	"archive/zip"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -42,6 +46,10 @@ func (a *App) SaveTab(index int, body string, cursorLine int) {
 	if index < 0 || index >= len(a.state.Tabs) {
 		return
 	}
+	// Enforce max body size.
+	if len(body) > 10*1024*1024 {
+		body = body[:10*1024*1024]
+	}
 	a.state.Tabs[index].Body = body
 	a.state.Tabs[index].CursorLine = cursorLine
 	a.state.Tabs[index].UpdatedAt = time.Now()
@@ -63,6 +71,10 @@ func (a *App) CloseTab(index int) core.State {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if index < 0 || index >= len(a.state.Tabs) {
+		return a.state
+	}
+	// Do not allow closing pinned tabs.
+	if a.state.Tabs[index].Pinned {
 		return a.state
 	}
 	if len(a.state.Tabs) == 1 {
@@ -96,6 +108,7 @@ func (a *App) RenameTab(index int, title string) core.State {
 	if index < 0 || index >= len(a.state.Tabs) {
 		return a.state
 	}
+	title = core.SanitiseTitle(title)
 	if title == "" {
 		title = fmt.Sprintf("tab %d", index+1)
 	}
@@ -105,15 +118,170 @@ func (a *App) RenameTab(index int, title string) core.State {
 	return a.state
 }
 
+// ── New v2.0 API methods ───────────────────────────────────────────────────────
+
+// ReorderTabs moves the tab at fromIndex to toIndex, shifting intervening tabs.
+// Returns the new state after persisting.
+func (a *App) ReorderTabs(fromIndex, toIndex int) core.State {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	tabs := a.state.Tabs
+	if fromIndex < 0 || fromIndex >= len(tabs) || toIndex < 0 || toIndex >= len(tabs) || fromIndex == toIndex {
+		return a.state
+	}
+
+	// Remove the tab from its current position.
+	moved := tabs[fromIndex]
+	newTabs := make([]core.Tab, 0, len(tabs))
+	newTabs = append(newTabs, tabs[:fromIndex]...)
+	newTabs = append(newTabs, tabs[fromIndex+1:]...)
+
+	// Insert at the target position.
+	result := make([]core.Tab, 0, len(tabs))
+	result = append(result, newTabs[:toIndex]...)
+	result = append(result, moved)
+	result = append(result, newTabs[toIndex:]...)
+	a.state.Tabs = result
+
+	// Adjust active index to follow the moved tab.
+	switch {
+	case a.state.ActiveIndex == fromIndex:
+		a.state.ActiveIndex = toIndex
+	case fromIndex < a.state.ActiveIndex && toIndex >= a.state.ActiveIndex:
+		a.state.ActiveIndex--
+	case fromIndex > a.state.ActiveIndex && toIndex <= a.state.ActiveIndex:
+		a.state.ActiveIndex++
+	}
+
+	a.storage.Save(a.state)
+	return a.state
+}
+
+// PinTab sets the Pinned field on a tab and re-persists state.
+func (a *App) PinTab(index int, pinned bool) core.State {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if index < 0 || index >= len(a.state.Tabs) {
+		return a.state
+	}
+	a.state.Tabs[index].Pinned = pinned
+	a.state.Tabs[index].UpdatedAt = time.Now()
+	a.storage.Save(a.state)
+	return a.state
+}
+
+// DuplicateTab creates a new tab with the same content as the tab at index.
+func (a *App) DuplicateTab(index int) core.State {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if index < 0 || index >= len(a.state.Tabs) {
+		return a.state
+	}
+	src := a.state.Tabs[index]
+	title := core.SanitiseTitle(src.Title + " (copy)")
+	dup := core.NewTab(title)
+	dup.Body = src.Body
+	a.state.Tabs = append(a.state.Tabs, dup)
+	a.state.ActiveIndex = len(a.state.Tabs) - 1
+	a.storage.Save(a.state)
+	return a.state
+}
+
+// GetStorageDir returns the directory where state.json lives.
 func (a *App) GetStorageDir() string {
 	return a.storage.Dir()
 }
 
+// GetLastError returns the last storage error as a string (empty if none).
 func (a *App) GetLastError() string {
 	if err := a.storage.LastError(); err != nil {
 		return err.Error()
 	}
 	return ""
+}
+
+// GetSystemInfo returns diagnostic information for the About / Settings panel.
+func (a *App) GetSystemInfo() map[string]interface{} {
+	a.mu.Lock()
+	tabCount := len(a.state.Tabs)
+	a.mu.Unlock()
+
+	dir := a.storage.Dir()
+	stateFile := filepath.Join(dir, "state.json")
+	var stateSize int64
+	if info, err := os.Stat(stateFile); err == nil {
+		stateSize = info.Size()
+	}
+
+	return map[string]interface{}{
+		"storageDir":    dir,
+		"stateFileSize": stateSize,
+		"tabCount":      tabCount,
+		"buildVersion":  "2.0.0",
+	}
+}
+
+// ExportAllTabs writes each tab as a .md file into dir.
+// Returns a non-empty error string on failure, or "" on success.
+func (a *App) ExportAllTabs(dir string) string {
+	// Basic path validation: dir must be absolute and must exist.
+	if !filepath.IsAbs(dir) {
+		return "export: directory path must be absolute"
+	}
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		return fmt.Sprintf("export: %s is not a valid directory", dir)
+	}
+
+	a.mu.Lock()
+	tabs := make([]core.Tab, len(a.state.Tabs))
+	copy(tabs, a.state.Tabs)
+	a.mu.Unlock()
+
+	timestamp := time.Now().Format("20060102-150405")
+	zipPath := filepath.Join(dir, "octonote-export-"+timestamp+".zip")
+	f, err := os.Create(zipPath)
+	if err != nil {
+		return fmt.Sprintf("export: cannot create zip: %v", err)
+	}
+	defer f.Close()
+
+	zw := zip.NewWriter(f)
+	defer zw.Close()
+
+	for i, tab := range tabs {
+		// Sanitise filename: replace slashes/colons, limit length.
+		name := sanitiseFilename(tab.Title)
+		if name == "" {
+			name = fmt.Sprintf("tab-%d", i+1)
+		}
+		w, err := zw.Create(name + ".md")
+		if err != nil {
+			continue
+		}
+		_, _ = fmt.Fprintf(w, "# %s\n\n%s\n", tab.Title, tab.Body)
+	}
+
+	return ""
+}
+
+// sanitiseFilename removes characters that are invalid in cross-platform filenames.
+func sanitiseFilename(name string) string {
+	name = strings.TrimSpace(name)
+	var b strings.Builder
+	for _, r := range name {
+		switch r {
+		case '/', '\\', ':', '*', '?', '"', '<', '>', '|', '\x00':
+			b.WriteRune('_')
+		default:
+			b.WriteRune(r)
+		}
+	}
+	result := b.String()
+	if len(result) > 64 {
+		result = result[:64]
+	}
+	return result
 }
 
 func (a *App) emitStateChange() {
@@ -284,4 +452,3 @@ func (a *App) GetTabFilePath(tabIndex int) string {
 	}
 	return a.state.Tabs[tabIndex].FilePath
 }
-

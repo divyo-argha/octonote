@@ -5,8 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/psanford/wormhole-william/wormhole"
+)
+
+const (
+	// currentShareVersion is the version field written into every payload.
+	currentShareVersion = 1
+	// maxPayloadBytes is the maximum wormhole payload size we will accept.
+	// This prevents a malicious or buggy peer from allocating unbounded memory.
+	maxPayloadBytes = 10 * 1024 * 1024 // 10 MB
+	// maxSenderLabelLen is the max bytes we accept for a sender label string.
+	maxSenderLabelLen = 32
 )
 
 // SharePayload is the JSON envelope sent through the wormhole.
@@ -34,11 +46,22 @@ type ShareResult struct {
 // then blocks on the returned wait func until the peer has received the data.
 // The caller should pass a cancellable ctx to abort waiting.
 func ShareSend(ctx context.Context, tab Tab, senderLabel string) (code string, wait func() error, err error) {
+	// Sanitise sender label: trim, strip control chars, max length.
+	senderLabel = sanitiseSenderLabel(senderLabel)
+
+	// Sanitise body — strip NUL bytes before sending.
+	body := strings.ReplaceAll(tab.Body, "\x00", "")
+
+	// Reject bodies that exceed the max payload size.
+	if len(body) > maxPayloadBytes {
+		return "", nil, fmt.Errorf("share: tab body too large (%d bytes > %d byte limit)", len(body), maxPayloadBytes)
+	}
+
 	payload := SharePayload{
-		TabTitle:    tab.Title,
-		Body:        tab.Body,
+		TabTitle:    SanitiseTitle(tab.Title),
+		Body:        body,
 		SenderLabel: senderLabel,
-		Version:     1,
+		Version:     currentShareVersion,
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
@@ -68,6 +91,12 @@ func ShareSend(ctx context.Context, tab Tab, senderLabel string) (code string, w
 // ShareReceive connects to an existing wormhole using the code typed by the user.
 // It blocks until the text is fully received, then returns the decoded tab content.
 func ShareReceive(ctx context.Context, code string) (ShareResult, error) {
+	// Sanitise the code input before passing to wormhole library.
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return ShareResult{}, fmt.Errorf("share: empty code")
+	}
+
 	var c wormhole.Client
 
 	msg, err := c.Receive(ctx, code)
@@ -80,9 +109,24 @@ func ShareReceive(ctx context.Context, code string) (ShareResult, error) {
 		return ShareResult{}, fmt.Errorf("share: peer sent a file, not text — wrong tool?")
 	}
 
-	raw, err := io.ReadAll(msg)
+	// Limit the reader to maxPayloadBytes to prevent memory exhaustion.
+	limited := io.LimitReader(msg, maxPayloadBytes+1)
+	raw, err := io.ReadAll(limited)
 	if err != nil {
 		return ShareResult{}, fmt.Errorf("share: read message: %w", err)
+	}
+
+	// Reject payloads that hit or exceed the size limit.
+	if len(raw) > maxPayloadBytes {
+		return ShareResult{}, fmt.Errorf("share: received payload too large (> %d MB limit)", maxPayloadBytes/1024/1024)
+	}
+
+	// Strip NUL bytes from raw payload before parsing.
+	raw = []byte(strings.ReplaceAll(string(raw), "\x00", ""))
+
+	// Validate that payload is valid UTF-8.
+	if !utf8.Valid(raw) {
+		return ShareResult{}, fmt.Errorf("share: received payload is not valid UTF-8")
 	}
 
 	var payload SharePayload
@@ -95,18 +139,48 @@ func ShareReceive(ctx context.Context, code string) (ShareResult, error) {
 		}, nil
 	}
 
-	title := payload.TabTitle
+	// Version checking: warn on forward-incompatible versions but still accept.
+	if payload.Version < 0 || payload.Version > 100 {
+		return ShareResult{}, fmt.Errorf("share: received payload has invalid version %d", payload.Version)
+	}
+
+	// Sanitise received fields.
+	title := SanitiseTitle(payload.TabTitle)
 	if title == "" {
 		title = "shared note"
 	}
+	senderLabel := sanitiseSenderLabel(payload.SenderLabel)
+	body := strings.ReplaceAll(payload.Body, "\x00", "")
+
+	// Validate body UTF-8.
+	if !utf8.ValidString(body) {
+		body = strings.ToValidUTF8(body, "")
+	}
+
 	// Prefix the tab title with the sender's label so the receiver immediately
 	// knows where the content came from, e.g. "From Alice · my-notes"
-	if payload.SenderLabel != "" {
-		title = "From " + payload.SenderLabel + " · " + title
+	if senderLabel != "" {
+		title = "From " + senderLabel + " · " + title
 	}
 	return ShareResult{
 		TabTitle:    title,
-		Body:        payload.Body,
-		SenderLabel: payload.SenderLabel,
+		Body:        body,
+		SenderLabel: senderLabel,
 	}, nil
+}
+
+// sanitiseSenderLabel trims, strips control characters, and truncates a sender label.
+func sanitiseSenderLabel(label string) string {
+	label = strings.TrimSpace(label)
+	var b strings.Builder
+	for _, r := range label {
+		if r >= 0x20 && r != 0x7F {
+			b.WriteRune(r)
+		}
+	}
+	label = b.String()
+	if len(label) > maxSenderLabelLen {
+		label = label[:maxSenderLabelLen]
+	}
+	return label
 }

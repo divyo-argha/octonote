@@ -5,12 +5,14 @@ export namespace core {
 	    title: string;
 	    body: string;
 	    cursor_line: number;
+	    cursor_col?: number;
 	    // Go type: time
 	    created_at: any;
 	    // Go type: time
 	    updated_at: any;
 	    file_path?: string;
 	    file_is_dirty?: boolean;
+	    pinned?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Tab(source);
@@ -22,10 +24,12 @@ export namespace core {
 	        this.title = source["title"];
 	        this.body = source["body"];
 	        this.cursor_line = source["cursor_line"];
+	        this.cursor_col = source["cursor_col"];
 	        this.created_at = this.convertValues(source["created_at"], null);
 	        this.updated_at = this.convertValues(source["updated_at"], null);
 	        this.file_path = source["file_path"];
 	        this.file_is_dirty = source["file_is_dirty"];
+	        this.pinned = source["pinned"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

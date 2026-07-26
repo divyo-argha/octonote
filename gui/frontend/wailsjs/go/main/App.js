@@ -6,6 +6,14 @@ export function CloseTab(arg1) {
   return window['go']['main']['App']['CloseTab'](arg1);
 }
 
+export function DuplicateTab(arg1) {
+  return window['go']['main']['App']['DuplicateTab'](arg1);
+}
+
+export function ExportAllTabs(arg1) {
+  return window['go']['main']['App']['ExportAllTabs'](arg1);
+}
+
 export function GetLastError() {
   return window['go']['main']['App']['GetLastError']();
 }
@@ -16,6 +24,10 @@ export function GetState() {
 
 export function GetStorageDir() {
   return window['go']['main']['App']['GetStorageDir']();
+}
+
+export function GetSystemInfo() {
+  return window['go']['main']['App']['GetSystemInfo']();
 }
 
 export function GetTabFilePath(arg1) {
@@ -30,8 +42,16 @@ export function OpenFile(arg1) {
   return window['go']['main']['App']['OpenFile'](arg1);
 }
 
+export function PinTab(arg1, arg2) {
+  return window['go']['main']['App']['PinTab'](arg1, arg2);
+}
+
 export function RenameTab(arg1, arg2) {
   return window['go']['main']['App']['RenameTab'](arg1, arg2);
+}
+
+export function ReorderTabs(arg1, arg2) {
+  return window['go']['main']['App']['ReorderTabs'](arg1, arg2);
 }
 
 export function SaveCurrentFile(arg1, arg2) {

@@ -4,11 +4,17 @@ import {core} from '../models';
 
 export function CloseTab(arg1:number):Promise<core.State>;
 
+export function DuplicateTab(arg1:number):Promise<core.State>;
+
+export function ExportAllTabs(arg1:string):Promise<string>;
+
 export function GetLastError():Promise<string>;
 
 export function GetState():Promise<core.State>;
 
 export function GetStorageDir():Promise<string>;
+
+export function GetSystemInfo():Promise<Record<string, any>>;
 
 export function GetTabFilePath(arg1:number):Promise<string>;
 
@@ -16,7 +22,11 @@ export function NewTab():Promise<core.State>;
 
 export function OpenFile(arg1:string):Promise<Record<string, any>>;
 
+export function PinTab(arg1:number,arg2:boolean):Promise<core.State>;
+
 export function RenameTab(arg1:number,arg2:string):Promise<core.State>;
+
+export function ReorderTabs(arg1:number,arg2:number):Promise<core.State>;
 
 export function SaveCurrentFile(arg1:number,arg2:string):Promise<string>;
 

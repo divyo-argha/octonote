@@ -6,8 +6,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+	"unicode"
+)
+
+const (
+	currentStateVersion = 2
+	maxTitleLen         = 128
+	maxBodyLen          = 10 * 1024 * 1024 // 10 MB soft limit
 )
 
 type Tab struct {
@@ -15,10 +23,12 @@ type Tab struct {
 	Title       string    `json:"title"`
 	Body        string    `json:"body"`
 	CursorLine  int       `json:"cursor_line"`
+	CursorCol   int       `json:"cursor_col,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
-	FilePath    string    `json:"file_path,omitempty"`    // absolute path to on-disk file, empty if unsaved
+	FilePath    string    `json:"file_path,omitempty"`     // absolute path to on-disk file, empty if unsaved
 	FileIsDirty bool      `json:"file_is_dirty,omitempty"` // true when body differs from last file save
+	Pinned      bool      `json:"pinned,omitempty"`        // if true, tab is locked to front and cannot be closed accidentally
 }
 
 type State struct {
@@ -78,6 +88,13 @@ func (s *Storage) Load() (State, error) {
 	if err := json.Unmarshal(data, &st); err != nil {
 		return defaultState(), nil
 	}
+
+	// Reject files claiming an impossible future version.
+	if st.Version > currentStateVersion+10 {
+		return defaultState(), fmt.Errorf("octonote: state version %d is too new (expected <= %d)", st.Version, currentStateVersion)
+	}
+
+	st = MigrateState(st)
 
 	if len(st.Tabs) == 0 {
 		st = defaultState()
@@ -226,10 +243,49 @@ func (s *Storage) Watch(ctx context.Context, onChange func()) {
 	}
 }
 
+// MigrateState upgrades a loaded State to the current schema version.
+// It is idempotent and safe to call on any version.
+func MigrateState(st State) State {
+	// v1 → v2: no structural changes, just ensure version field is set.
+	if st.Version < 2 {
+		st.Version = currentStateVersion
+	}
+	// Sanitise all tab fields on every load.
+	for i := range st.Tabs {
+		st.Tabs[i].Title = SanitiseTitle(st.Tabs[i].Title)
+		st.Tabs[i].Body  = stripNUL(st.Tabs[i].Body)
+		if st.Tabs[i].ID == "" {
+			st.Tabs[i].ID = generateID()
+		}
+	}
+	return st
+}
+
+// SanitiseTitle strips control characters from a tab title and truncates to maxTitleLen.
+func SanitiseTitle(title string) string {
+	title = strings.TrimSpace(title)
+	title = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1 // drop control chars including NUL
+		}
+		return r
+	}, title)
+	runes := []rune(title)
+	if len(runes) > maxTitleLen {
+		title = string(runes[:maxTitleLen])
+	}
+	return title
+}
+
+// stripNUL removes NUL bytes from a string.
+func stripNUL(s string) string {
+	return strings.ReplaceAll(s, "\x00", "")
+}
+
 func defaultState() State {
 	now := time.Now()
 	return State{
-		Version:     1,
+		Version:     currentStateVersion,
 		ActiveIndex: 0,
 		Tabs: []Tab{
 			{
@@ -245,6 +301,10 @@ func defaultState() State {
 
 func NewTab(title string) Tab {
 	now := time.Now()
+	title = SanitiseTitle(title)
+	if title == "" {
+		title = "scratch"
+	}
 	return Tab{
 		ID:        generateID(),
 		Title:     title,
