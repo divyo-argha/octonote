@@ -851,6 +851,88 @@ html, body {
   box-shadow: 0 0 6px var(--col-success);
 }
 
+.badge-storage-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-right: 4px;
+}
+
+.badge-storage-tag--cache {
+  background: rgba(99, 102, 241, 0.2);
+  color: var(--col-accent-lt);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+
+.badge-storage-tag--disk {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--col-success);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.status-file--cache {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--col-text-muted);
+  font-size: 11px;
+}
+
+.status-file-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--col-border);
+  color: var(--col-text-subtle);
+}
+
+.status-file-action-btn {
+  background: var(--col-accent);
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.status-file-action-btn:hover {
+  background: var(--col-accent-hover);
+}
+
+.status-file--disk {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--col-accent-lt);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: rgba(99, 102, 241, 0.1);
+  padding: 1px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-file-icon {
+  flex-shrink: 0;
+}
+
+.tab__disk-icon {
+  color: var(--col-accent-lt);
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
 .note-dirty-tag {
   font-size: 9px;
   font-weight: 700;
