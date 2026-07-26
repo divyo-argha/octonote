@@ -321,8 +321,12 @@
 
       <!-- Editor column (gutter + textarea + overlay) -->
       <div class="editor-main" id="editor-main">
-        <!-- Floating Unsaved / Saved Badge in Editor Body -->
-        <div id="editor-dirty-badge" class="editor-dirty-badge" hidden></div>
+        <!-- Text Area Bottom Left Status Corner Indicator -->
+        <div id="editor-status-corner" class="editor-status-corner">
+          <span id="editor-corner-dot" class="status-dot status-dot--yellow"></span>
+          <span id="editor-corner-text">Not permanently saved</span>
+          <button id="btn-save-to-disk-corner" class="status-file-action-btn" title="Save this scratchpad to a permanent file on disk">Save to Disk…</button>
+        </div>
 
         <!-- Line number gutter -->
         <div id="line-gutter" class="line-gutter" aria-hidden="true"></div>
@@ -357,11 +361,11 @@
        ═══════════════════════════════════════════════════════════════ -->
   <footer id="statusbar" class="statusbar" role="contentinfo" aria-label="Status bar">
     <div class="statusbar__left">
-      <span id="status-save" class="status-indicator status-indicator--saved" aria-label="Save status">
-        <svg class="status-icon" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="var(--col-success)"/></svg>
-        <span id="status-save-text">Saved</span>
+      <span id="status-save" class="status-indicator" aria-label="Save status">
+        <span id="status-dot" class="status-dot status-dot--yellow"></span>
+        <span id="status-save-text">Not permanently saved</span>
       </span>
-      <span id="status-file" class="status-file" aria-label="Current file path" hidden></span>
+      <span id="status-file" class="status-file" aria-label="Current file path"></span>
       <span id="status-lock-state" class="status-badge" hidden>🔒 Encrypted</span>
     </div>
     <div class="statusbar__shortcuts" aria-label="Keyboard shortcuts">

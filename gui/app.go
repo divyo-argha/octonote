@@ -114,6 +114,23 @@ func (a *App) RenameTab(index int, title string) core.State {
 	if title == "" {
 		title = fmt.Sprintf("tab %d", index+1)
 	}
+
+	oldPath := a.state.Tabs[index].FilePath
+	if oldPath != "" {
+		dir := filepath.Dir(oldPath)
+		ext := filepath.Ext(oldPath)
+		newTitle := title
+		if ext != "" && !strings.HasSuffix(strings.ToLower(newTitle), strings.ToLower(ext)) {
+			newTitle += ext
+		}
+		newPath := filepath.Join(dir, newTitle)
+		if oldPath != newPath {
+			_ = os.Rename(oldPath, newPath)
+			a.state.Tabs[index].FilePath = newPath
+			title = filepath.Base(newPath)
+		}
+	}
+
 	a.state.Tabs[index].Title = title
 	a.state.Tabs[index].UpdatedAt = time.Now()
 	a.storage.Save(a.state)
@@ -497,6 +514,7 @@ func (a *App) PromptSaveFileDialog(tabIndex int, content string) string {
 
 	a.mu.Lock()
 	if tabIndex >= 0 && tabIndex < len(a.state.Tabs) {
+		a.state.Tabs[tabIndex].Title = filepath.Base(selectedPath)
 		a.state.Tabs[tabIndex].FilePath = selectedPath
 		a.state.Tabs[tabIndex].FileIsDirty = false
 		a.state.Tabs[tabIndex].Body = content
@@ -515,6 +533,7 @@ func (a *App) SaveFileAs(tabIndex int, path, content string) string {
 	}
 	a.mu.Lock()
 	if tabIndex >= 0 && tabIndex < len(a.state.Tabs) {
+		a.state.Tabs[tabIndex].Title = filepath.Base(path)
 		a.state.Tabs[tabIndex].FilePath = path
 		a.state.Tabs[tabIndex].FileIsDirty = false
 		a.state.Tabs[tabIndex].Body = content

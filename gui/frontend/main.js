@@ -319,6 +319,15 @@ function setupEventListeners() {
 
 // ── Tab Management ────────────────────────────────────────────────────────────
 
+function getTabDisplayTitle(tab, index) {
+  if (!tab) return 'Untitled';
+  if (tab.file_path) {
+    const filename = tab.file_path.split('/').pop() || tab.file_path;
+    return filename;
+  }
+  return tab.title || `Scratchpad ${index + 1}`;
+}
+
 function renderTabs() {
   // Clear non-new tabs
   const existingTabs = tabbar.querySelectorAll('.tab:not(.tab--new)');
@@ -335,7 +344,7 @@ function renderTabs() {
     tabEl.style.setProperty('--wails-draggable', 'no-drag');
     tabEl.title = tab.file_path ? `On-Disk File: ${tab.file_path}` : 'Scratchpad (App Cache Only)';
 
-    let titleText = tab.title || `tab ${index + 1}`;
+    let titleText = getTabDisplayTitle(tab, index);
     let pinHtml = tab.pinned ? '<svg class="tab__pin-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5v6l1 1 1-1v-6h5v-2l-2-2z"/></svg>' : '';
     let diskHtml = tab.file_path ? '<svg class="tab__disk-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>' : '';
     let dirtyHtml = tab.file_is_dirty ? '<span class="tab__dirty-dot" title="Unsaved changes"></span>' : '';
@@ -418,8 +427,8 @@ async function promptRenameTab(index = state.active_index) {
   const tab = state.tabs?.[index];
   if (!tab) return;
 
-  const currentTitle = tab.title || 'Untitled';
-  const newTitle = prompt('Rename note title:', currentTitle);
+  const currentTitle = getTabDisplayTitle(tab, index);
+  const newTitle = prompt('Rename note title / filename:', currentTitle);
   if (newTitle !== null && newTitle.trim() !== '' && newTitle !== currentTitle) {
     await renameTab(index, newTitle.trim());
     showToast(`Renamed to "${newTitle.trim()}"`);
@@ -560,7 +569,7 @@ function renderSidebarNotes() {
 
     card.innerHTML = `
       <div class="note-item-header">
-        <span class="note-item-title">${escapeHtml(tab.title || 'Untitled')}</span>
+        <span class="note-item-title">${escapeHtml(getTabDisplayTitle(tab, index))}</span>
         ${tab.pinned ? '📌' : ''}
         ${dirtyTagHtml}
         <button class="note-rename-mini-btn" title="Rename Note">✏️</button>
@@ -597,11 +606,9 @@ function updateEditorContent() {
     editor.value = activeTab.body || '';
   }
 
-  updateFileLocationUI(activeTab);
-
   updateLineNumbers();
   updateCursorPosAndMetrics();
-  updateEditorDirtyUI(!!activeTab.file_is_dirty);
+  updateStatusIndicator(false);
   if (isPreviewOpen) renderMarkdownPreview();
 }
 
@@ -610,7 +617,7 @@ function handleEditorInput() {
     state.tabs[state.active_index].body = editor.value;
     state.tabs[state.active_index].file_is_dirty = true;
     updateTabDirtyState(state.active_index, true);
-    updateEditorDirtyUI(true, 'unsaved');
+    updateStatusIndicator(false);
   }
   updateLineNumbers();
   updateCursorPosAndMetrics();
@@ -619,9 +626,7 @@ function handleEditorInput() {
 }
 
 function triggerAutoSave() {
-  statusSaveText.textContent = 'Saving…';
-  statusSave.classList.remove('status-indicator--saved');
-  updateEditorDirtyUI(true, 'saving');
+  updateStatusIndicator(true);
 
   const activeIdx = state.active_index;
   const currentBody = editor.value;
@@ -638,10 +643,8 @@ function triggerAutoSave() {
       }
       captureSnapshot();
       if (activeIdx === state.active_index) {
-        statusSaveText.textContent = 'Saved';
-        statusSave.classList.add('status-indicator--saved');
         updateTabDirtyState(activeIdx, false);
-        updateEditorDirtyUI(false);
+        updateStatusIndicator(false);
       }
     }
   }, 300);
@@ -674,64 +677,79 @@ function updateTabDirtyState(index, isDirty) {
   }
 }
 
-let savedBadgeTimer = null;
-
-function updateEditorDirtyUI(isDirty, status = 'unsaved') {
-  let dirtyBadge = document.getElementById('editor-dirty-badge');
-  if (!dirtyBadge) {
-    dirtyBadge = document.createElement('div');
-    dirtyBadge.id = 'editor-dirty-badge';
-    dirtyBadge.className = 'editor-dirty-badge';
-    editorMain.prepend(dirtyBadge);
-  }
-
-  clearTimeout(savedBadgeTimer);
-
+function updateStatusIndicator(isSaving = false) {
   const activeTab = state.tabs?.[state.active_index];
-  const storageTag = activeTab?.file_path 
-    ? `<span class="badge-storage-tag badge-storage-tag--disk" title="${escapeHtml(activeTab.file_path)}">💾 Disk File</span>` 
-    : `<span class="badge-storage-tag badge-storage-tag--cache" title="Saved to octoNote App Cache">⚡ App Cache</span>`;
+  if (!activeTab) return;
 
-  if (isDirty) {
-    editorMain.classList.add('editor-main--dirty');
-    dirtyBadge.classList.remove('editor-dirty-badge--saved');
-    dirtyBadge.hidden = false;
-    if (status === 'saving') {
-      dirtyBadge.innerHTML = `${storageTag} <span class="dirty-badge-dot dirty-badge-dot--saving"></span> Saving…`;
-    } else {
-      dirtyBadge.innerHTML = `${storageTag} <span class="dirty-badge-dot dirty-badge-dot--unsaved"></span> Unsaved`;
-    }
-  } else {
-    editorMain.classList.remove('editor-main--dirty');
-    dirtyBadge.classList.add('editor-dirty-badge--saved');
-    dirtyBadge.innerHTML = `${storageTag} <span class="dirty-badge-dot dirty-badge-dot--saved"></span> Saved`;
-    dirtyBadge.hidden = false;
+  const dotEl = document.getElementById('status-dot');
+  const cornerEl = document.getElementById('editor-status-corner');
+  const cornerDot = document.getElementById('editor-corner-dot');
+  const cornerText = document.getElementById('editor-corner-text');
+  const cornerBtn = document.getElementById('btn-save-to-disk-corner');
 
-    savedBadgeTimer = setTimeout(() => {
-      if (activeTab?.file_path) {
-        dirtyBadge.innerHTML = `${storageTag} <span class="dirty-badge-dot dirty-badge-dot--saved"></span> Saved`;
-      } else {
-        dirtyBadge.hidden = true;
-      }
-    }, 2000);
+  const isDiskSaved = !!activeTab.file_path && !activeTab.file_is_dirty;
+
+  if (isSaving) {
+    statusSaveText.textContent = 'Saving…';
+    if (dotEl) dotEl.className = 'status-dot status-dot--yellow status-dot--pulse';
+    if (cornerText) cornerText.textContent = 'Saving…';
+    if (cornerDot) cornerDot.className = 'status-dot status-dot--yellow status-dot--pulse';
+    return;
   }
+
+  if (isDiskSaved) {
+    const fileName = activeTab.file_path.split('/').pop() || activeTab.file_path;
+    const saveMsg = `Saved to disk (${fileName})`;
+    statusSaveText.textContent = saveMsg;
+    statusSave.title = `Permanently saved at: ${activeTab.file_path}`;
+    if (dotEl) dotEl.className = 'status-dot status-dot--green';
+
+    if (cornerEl) cornerEl.className = 'editor-status-corner editor-status-corner--disk';
+    if (cornerDot) cornerDot.className = 'status-dot status-dot--green';
+    if (cornerText) cornerText.textContent = saveMsg;
+    if (cornerBtn) cornerBtn.hidden = true;
+  } else {
+    let msg = 'Not permanently saved (App Cache)';
+    if (activeTab.file_is_dirty) {
+      msg = 'Unsaved changes';
+      statusSave.title = 'You have unsaved changes in this document';
+    } else {
+      statusSave.title = 'Saved automatically in local app cache, but not saved to a standalone file on disk';
+    }
+
+    statusSaveText.textContent = msg;
+    if (dotEl) dotEl.className = 'status-dot status-dot--yellow';
+
+    if (cornerEl) cornerEl.className = 'editor-status-corner';
+    if (cornerDot) cornerDot.className = 'status-dot status-dot--yellow';
+    if (cornerText) cornerText.textContent = msg;
+    if (cornerBtn) {
+      cornerBtn.hidden = false;
+      cornerBtn.onclick = (e) => {
+        e.stopPropagation();
+        saveActiveNoteToDisk();
+      };
+    }
+  }
+
+  updateFileLocationUI(activeTab);
 }
 
 function updateFileLocationUI(tab) {
   if (!tab || !statusFile) return;
 
-  statusFile.hidden = false;
-
   if (tab.file_path) {
+    statusFile.hidden = false;
     statusFile.className = 'status-file status-file--disk';
     statusFile.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="status-file-icon"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> <span class="status-file-path" title="${escapeHtml(tab.file_path)}">${escapeHtml(tab.file_path)}</span>`;
   } else {
+    statusFile.hidden = false;
     statusFile.className = 'status-file status-file--cache';
-    statusFile.innerHTML = `<span class="status-file-tag" title="Saved automatically in octoNote App Storage, not saved to a standalone file on disk">⚡ App Scratchpad (Cache)</span> <button id="btn-save-to-disk-inline" class="status-file-action-btn" title="Save this scratchpad to a permanent location on disk">Save to Disk…</button>`;
+    statusFile.innerHTML = `<button id="btn-save-to-disk-inline" class="status-file-action-btn" title="Save this scratchpad to a permanent location on disk">Save to Disk…</button>`;
     
     document.getElementById('btn-save-to-disk-inline')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      promptSaveToDisk();
+      saveActiveNoteToDisk();
     });
   }
 }
@@ -752,7 +770,9 @@ async function saveActiveNoteToDisk() {
         return;
       }
       activeTab.file_is_dirty = false;
-      showToast(`Saved to ${activeTab.file_path.split('/').pop() || activeTab.file_path}`);
+      const fileName = activeTab.file_path.split('/').pop() || activeTab.file_path;
+      activeTab.title = fileName;
+      showToast(`Saved to ${fileName}`);
       renderTabs();
       renderSidebarNotes();
       updateEditorContent();
@@ -772,9 +792,11 @@ async function saveActiveNoteToDisk() {
   if (window.go?.main?.App?.PromptSaveFileDialog) {
     const res = await window.go.main.App.PromptSaveFileDialog(activeIdx, currentContent);
     if (res && res !== 'cancelled' && !res.startsWith('invalid') && !res.startsWith('failed')) {
+      const fileName = res.split('/').pop() || res;
       activeTab.file_path = res;
+      activeTab.title = fileName;
       activeTab.file_is_dirty = false;
-      showToast(`Saved to ${res.split('/').pop() || res}`);
+      showToast(`Saved to ${fileName}`);
       renderTabs();
       renderSidebarNotes();
       updateEditorContent();
@@ -1075,7 +1097,7 @@ function getBuiltinCommands() {
     state.tabs.forEach((tab, idx) => {
       cmds.push({
         id: `switch-tab-${idx}`,
-        title: `Switch to Tab ${idx + 1}: ${tab.title || 'Untitled'}`,
+        title: `Switch to Tab ${idx + 1}: ${getTabDisplayTitle(tab, idx)}`,
         shortcut: `⌘${idx + 1}`,
         action: () => switchActiveTab(idx)
       });
