@@ -7,11 +7,11 @@
   <title>octoNote</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Screen reader heading (visually hidden) -->
+  <!-- Screen reader heading -->
   <h1 class="sr-only">octoNote — scratchpad workspace</h1>
 
   <!-- Welcome / Onboarding overlay (shown on first run) -->
@@ -22,14 +22,21 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════
-       TITLE BAR — Draggable, houses logo + tabs + controls
+       TITLE BAR — Draggable, houses logo + sidebar toggle + tabs + actions
        ═══════════════════════════════════════════════════════════════ -->
   <header id="titlebar" class="titlebar" aria-label="Window title bar">
 
-    <!-- Logo (drag region) -->
-    <div class="titlebar__drag-region" style="--wails-draggable: drag">
+    <!-- Logo & Sidebar Toggle (drag region) -->
+    <div class="titlebar__left" style="--wails-draggable: drag">
+      <button id="btn-sidebar-toggle" class="icon-btn" title="Toggle Sidebar (Ctrl+B)" aria-label="Toggle sidebar" style="--wails-draggable: no-drag" aria-expanded="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <line x1="9" y1="3" x2="9" y2="21"/>
+        </svg>
+      </button>
       <div class="titlebar__logo-container">
         <img class="titlebar__logo" src="logo.png" alt="octoNote logo" aria-hidden="true" />
+        <span class="titlebar__brand">octoNote</span>
       </div>
     </div>
 
@@ -45,12 +52,29 @@
 
     <!-- Title-bar action buttons -->
     <div class="titlebar__actions" role="group" aria-label="Editor actions" style="--wails-draggable: no-drag">
+      <!-- Command Palette Button -->
+      <button id="btn-command-palette" class="action-badge-btn" title="Command Palette (Ctrl+P)" aria-label="Command palette">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="6.5" cy="6.5" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/>
+        </svg>
+        <span>Command</span>
+        <kbd class="kbd-sm">⌘P</kbd>
+      </button>
+
       <!-- Preview toggle -->
-      <button id="btn-preview" class="share-btn" title="Toggle Markdown Preview (Ctrl+M)" aria-label="Toggle markdown preview" aria-pressed="false">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <button id="btn-preview" class="action-btn" title="Toggle Markdown Split Preview (Ctrl+M)" aria-label="Toggle markdown preview" aria-pressed="false">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="1" y="3" width="14" height="10" rx="1"/><line x1="5" y1="7" x2="11" y2="7"/><line x1="5" y1="9.5" x2="9" y2="9.5"/>
         </svg>
         <span>Preview</span>
+      </button>
+
+      <!-- Distraction-free (Zen) mode toggle -->
+      <button id="btn-zen" class="action-btn" title="Distraction Free Mode (F11)" aria-label="Toggle distraction free mode" aria-pressed="false">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+        <span>Zen</span>
       </button>
     </div>
 
@@ -69,146 +93,281 @@
   </header>
 
   <!-- ═══════════════════════════════════════════════════════════════
-       EDITOR AREA — Gutter | Editor | Preview
+       MAIN APP LAYOUT (Collapsible Sidebar + Editor Area)
        ═══════════════════════════════════════════════════════════════ -->
-  <main id="editor-area" class="editor-area" role="main">
+  <div class="app-layout">
 
-    <!-- Find & Replace Bar (floating, inside editor-area) -->
-    <div id="search-bar" class="search-bar" role="search" aria-label="Find and replace" hidden>
-      <div class="search-bar__row">
-        <input id="search-find-input"
-          class="search-bar__input"
-          type="search"
-          placeholder="Find…"
-          autocomplete="off"
+    <!-- Collapsible Sidebar -->
+    <aside id="sidebar-pane" class="sidebar-pane" role="navigation" aria-label="Sidebar panel">
+      
+      <!-- Sidebar View Tabs Header -->
+      <div class="sidebar__tabs" role="tablist">
+        <button id="sidebar-tab-explorer" class="sidebar-tab sidebar-tab--active" title="Notes Explorer" role="tab" aria-selected="true" data-view="explorer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </button>
+        <button id="sidebar-tab-tools" class="sidebar-tab" title="Developer Power Tools" role="tab" aria-selected="false" data-view="tools">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        </button>
+        <button id="sidebar-tab-share" class="sidebar-tab" title="P2P Wormhole Share" role="tab" aria-selected="false" data-view="share">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        </button>
+        <button id="sidebar-tab-history" class="sidebar-tab" title="Version History" role="tab" aria-selected="false" data-view="history">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </button>
+        <button id="sidebar-tab-settings" class="sidebar-tab" title="Settings & Appearance" role="tab" aria-selected="false" data-view="settings">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+
+      <!-- Sidebar Content Container -->
+      <div class="sidebar__content">
+
+        <!-- 1. Notes Explorer View -->
+        <div id="view-explorer" class="sidebar-view sidebar-view--active">
+          <div class="sidebar-section-header">
+            <span>Notes Explorer</span>
+            <button id="btn-sidebar-new-note" class="sidebar-mini-btn" title="Create New Scratchpad">+ New</button>
+          </div>
+          <div class="sidebar-search-box">
+            <input id="sidebar-search-input" type="text" placeholder="Filter notes…" autocomplete="off" spellcheck="false" />
+          </div>
+          <div id="sidebar-notes-list" class="sidebar-notes-list" role="list">
+            <!-- Dynamic note items rendered here -->
+          </div>
+        </div>
+
+        <!-- 2. Developer Power Tools View -->
+        <div id="view-tools" class="sidebar-view">
+          <div class="sidebar-section-header">
+            <span>Developer Tools</span>
+          </div>
+          <div class="tools-group">
+            <label class="tools-label">⚡ JSON Tools</label>
+            <div class="tools-btn-grid">
+              <button id="btn-tool-json-prettify" class="tool-btn">Format JSON</button>
+              <button id="btn-tool-json-minify" class="tool-btn">Minify JSON</button>
+            </div>
+          </div>
+          <div class="tools-group">
+            <label class="tools-label">🔤 Text Case Converter</label>
+            <div class="tools-btn-grid tools-btn-grid--3">
+              <button class="tool-btn-case" data-case="upper">UPPER</button>
+              <button class="tool-btn-case" data-case="lower">lower</button>
+              <button class="tool-btn-case" data-case="title">Title</button>
+              <button class="tool-btn-case" data-case="camel">camelCase</button>
+              <button class="tool-btn-case" data-case="snake">snake_case</button>
+              <button class="tool-btn-case" data-case="kebab">kebab-case</button>
+            </div>
+          </div>
+          <div class="tools-group">
+            <label class="tools-label">📝 Quick Snippet Templates</label>
+            <div class="tools-btn-grid">
+              <button class="tool-btn-template" data-template="todo">📋 Task List</button>
+              <button class="tool-btn-template" data-template="meeting">🤝 Meeting Notes</button>
+              <button class="tool-btn-template" data-template="table">📊 Markdown Table</button>
+              <button class="tool-btn-template" data-template="json">⚙️ JSON Config</button>
+              <button class="tool-btn-template" data-template="bug">🐛 Bug Report</button>
+            </div>
+          </div>
+          <div class="tools-group">
+            <label class="tools-label">📊 Text Statistics & Metrics</label>
+            <div id="tools-metrics-card" class="tools-metrics-card">
+              <div class="metric-row"><span>Words:</span><strong id="metric-words">0</strong></div>
+              <div class="metric-row"><span>Characters:</span><strong id="metric-chars">0</strong></div>
+              <div class="metric-row"><span>Lines:</span><strong id="metric-lines">0</strong></div>
+              <div class="metric-row"><span>Est. Reading:</span><strong id="metric-reading">0 sec</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. P2P Share View -->
+        <div id="view-share" class="sidebar-view">
+          <div class="sidebar-section-header">
+            <span>P2P Direct Share</span>
+          </div>
+          <p class="sidebar-help-text">Share scratchpads end-to-end encrypted using Magic Wormhole without any cloud accounts.</p>
+          <div class="share-actions-card">
+            <button id="btn-sidebar-share-send" class="btn-primary w-full">📡 Send Current Tab</button>
+            <div class="divider-text">OR RECEIVE</div>
+            <input id="sidebar-share-code-input" type="text" class="input-text w-full" placeholder="Enter 4-word code (e.g. 7-ocean-river)" />
+            <button id="btn-sidebar-share-receive" class="btn-secondary w-full">📥 Receive Note</button>
+          </div>
+          <div id="sidebar-share-status" class="share-status-box" hidden></div>
+        </div>
+
+        <!-- 4. Version History View -->
+        <div id="view-history" class="sidebar-view">
+          <div class="sidebar-section-header">
+            <span>Version History</span>
+          </div>
+          <p class="sidebar-help-text">Automatic snapshots taken every edit session.</p>
+          <div id="sidebar-history-list" class="sidebar-history-list">
+            <!-- Dynamic snapshots list -->
+          </div>
+        </div>
+
+        <!-- 5. Settings View -->
+        <div id="view-settings" class="sidebar-view">
+          <div class="sidebar-section-header">
+            <span>Settings & Preferences</span>
+          </div>
+          <div class="settings-group">
+            <label class="tools-label">🎨 Theme Preset</label>
+            <div class="theme-grid">
+              <button class="theme-pill theme-pill--dark active" data-theme="dark">Midnight</button>
+              <button class="theme-pill theme-pill--cyber" data-theme="cyber">Cyber</button>
+              <button class="theme-pill theme-pill--nord" data-theme="nord">Nord</button>
+              <button class="theme-pill theme-pill--tokyo" data-theme="tokyo">Tokyo</button>
+              <button class="theme-pill theme-pill--oled" data-theme="oled">OLED</button>
+            </div>
+          </div>
+          <div class="settings-group">
+            <label class="tools-label" for="setting-tab-layout">Tab Layout Mode</label>
+            <select id="setting-tab-layout" class="input-select">
+              <option value="horizontal">Horizontal Top Bar (Default)</option>
+              <option value="vertical">Vertical Sidebar List</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <label class="tools-label" for="setting-font">Font Family</label>
+            <select id="setting-font" class="input-select">
+              <option value="jetbrains">JetBrains Mono (Default)</option>
+              <option value="fira">Fira Code</option>
+              <option value="inter">Inter (Prose)</option>
+              <option value="outfit">Outfit (Modern UI)</option>
+              <option value="system">System Monospace</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <label class="tools-label" for="setting-fontsize">Font Size: <span id="setting-fontsize-val">15px</span></label>
+            <input id="setting-fontsize" type="range" min="11" max="24" value="15" class="input-range" />
+          </div>
+          <div class="settings-group">
+            <label class="checkbox-setting">
+              <input id="setting-wordwrap" type="checkbox" checked />
+              <span>Word Wrap</span>
+            </label>
+            <label class="checkbox-setting">
+              <input id="setting-linenums" type="checkbox" checked />
+              <span>Line Numbers</span>
+            </label>
+            <label class="checkbox-setting">
+              <input id="setting-activeline" type="checkbox" checked />
+              <span>Highlight Active Line</span>
+            </label>
+          </div>
+          <div class="settings-group">
+            <label class="tools-label">📦 Storage & Export</label>
+            <button id="btn-export-zip" class="btn-secondary w-full">📥 Export All Notes (.ZIP)</button>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- Editor & Preview Main Area -->
+    <main id="editor-area" class="editor-area" role="main">
+
+      <!-- Find & Replace Bar (floating inside editor-area) -->
+      <div id="search-bar" class="search-bar" role="search" aria-label="Find and replace" hidden>
+        <div class="search-bar__row">
+          <input id="search-find-input"
+            class="search-bar__input"
+            type="search"
+            placeholder="Find…"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Search text"
+          />
+          <span id="search-count" class="search-bar__count" aria-live="polite" aria-atomic="true">0 of 0</span>
+          <button id="btn-search-prev"  class="search-bar__btn" title="Previous match (Shift+Enter)" aria-label="Previous match">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 6l3-3 3 3"/></svg>
+          </button>
+          <button id="btn-search-next"  class="search-bar__btn" title="Next match (Enter)" aria-label="Next match">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 4l3 3 3-3"/></svg>
+          </button>
+          <button id="btn-search-case"  class="search-bar__btn" title="Case sensitive" aria-label="Toggle case sensitive" aria-pressed="false">Aa</button>
+          <button id="btn-search-regex" class="search-bar__btn" title="Regular expression" aria-label="Toggle regex mode" aria-pressed="false">.*</button>
+          <button id="btn-search-replace-toggle" class="search-bar__btn" title="Toggle replace" aria-label="Toggle replace row" aria-expanded="false">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M1 3h8M6 1l2 2-2 2M9 7H1M4 5l-2 2 2 2"/></svg>
+          </button>
+          <button id="btn-search-close" class="search-bar__btn search-bar__btn--close" title="Close (Esc)" aria-label="Close find bar">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6"/></svg>
+          </button>
+        </div>
+        <div id="search-replace-row" class="search-bar__row" hidden>
+          <input id="search-replace-input"
+            class="search-bar__input"
+            type="text"
+            placeholder="Replace with…"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Replace text"
+          />
+          <button id="btn-replace-one" class="search-bar__btn" title="Replace next" aria-label="Replace next occurrence">1</button>
+          <button id="btn-replace-all" class="search-bar__btn" title="Replace all" aria-label="Replace all occurrences">All</button>
+        </div>
+      </div>
+
+      <!-- Editor column (gutter + textarea + overlay) -->
+      <div class="editor-main" id="editor-main">
+        <!-- Line number gutter -->
+        <div id="line-gutter" class="line-gutter" aria-hidden="true"></div>
+
+        <!-- Active line highlight -->
+        <div id="editor-active-line" class="editor-active-line" aria-hidden="true"></div>
+
+        <!-- Syntax highlight overlay -->
+        <div id="editor-highlight" class="editor-highlight" aria-hidden="true"></div>
+
+        <!-- Editable textarea -->
+        <textarea
+          id="editor"
+          class="editor"
           spellcheck="false"
-          aria-label="Search text"
-        />
-        <span id="search-count" class="search-bar__count" aria-live="polite" aria-atomic="true">0 of 0</span>
-        <button id="btn-search-prev"  class="search-bar__btn" title="Previous match (Shift+Enter)" aria-label="Previous match">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 6l3-3 3 3"/></svg>
-        </button>
-        <button id="btn-search-next"  class="search-bar__btn" title="Next match (Enter)" aria-label="Next match">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 4l3 3 3-3"/></svg>
-        </button>
-        <button id="btn-search-case"  class="search-bar__btn" title="Case sensitive" aria-label="Toggle case sensitive" aria-pressed="false">Aa</button>
-        <button id="btn-search-regex" class="search-bar__btn" title="Regular expression" aria-label="Toggle regex mode" aria-pressed="false">.*</button>
-        <button id="btn-search-replace-toggle" class="search-bar__btn" title="Toggle replace" aria-label="Toggle replace row" aria-expanded="false">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M1 3h8M6 1l2 2-2 2M9 7H1M4 5l-2 2 2 2"/></svg>
-        </button>
-        <button id="btn-search-close" class="search-bar__btn search-bar__btn--close" title="Close (Esc)" aria-label="Close find bar">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6"/></svg>
-        </button>
-      </div>
-      <div id="search-replace-row" class="search-bar__row" hidden>
-        <input id="search-replace-input"
-          class="search-bar__input"
-          type="text"
-          placeholder="Replace with…"
+          autocorrect="off"
+          autocapitalize="off"
           autocomplete="off"
-          spellcheck="false"
-          aria-label="Replace text"
-        />
-        <button id="btn-replace-one" class="search-bar__btn" title="Replace next" aria-label="Replace next occurrence">1</button>
-        <button id="btn-replace-all" class="search-bar__btn" title="Replace all" aria-label="Replace all occurrences">All</button>
+          aria-label="Scratchpad editor"
+          aria-multiline="true"
+          placeholder="Start typing… (Ctrl+P for Command Palette, Ctrl+B for Sidebar)"
+        ></textarea>
       </div>
-    </div>
 
-    <!-- Editor column (gutter + textarea + overlay) -->
-    <div class="editor-main" id="editor-main">
-      <!-- Line number gutter -->
-      <div id="line-gutter" class="line-gutter" aria-hidden="true"></div>
-
-      <!-- Active line highlight (behind both overlay and textarea) -->
-      <div id="editor-active-line" class="editor-active-line" aria-hidden="true"></div>
-
-      <!-- Syntax highlight overlay -->
-      <div id="editor-highlight" class="editor-highlight" aria-hidden="true"></div>
-
-      <!-- The real editable textarea -->
-      <textarea
-        id="editor"
-        class="editor"
-        spellcheck="false"
-        autocorrect="off"
-        autocapitalize="off"
-        autocomplete="off"
-        aria-label="Scratchpad editor"
-        aria-multiline="true"
-        placeholder="Start typing…  (Ctrl+P for commands)"
-      ></textarea>
-
-      <!-- Version History Drawer -->
-      <div id="history-panel" class="history-panel" role="complementary" aria-label="Version history" hidden>
-        <div class="history-panel__header">
-          <span class="history-panel__title">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" style="margin-right:6px;vertical-align:-2px">
-              <circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/>
-            </svg>
-            History
-          </span>
-          <button id="btn-history-close" class="share-modal__close" aria-label="Close history">×</button>
-        </div>
-        <div id="history-list" class="history-panel__list" role="list" aria-label="Version snapshots">
-          <!-- Entries injected by JS -->
-        </div>
-        <div class="history-panel__footer">
-          <button id="btn-history-restore" class="history-restore-btn" disabled aria-label="Restore selected version">Restore Version</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Markdown Preview Pane -->
-    <div id="preview-pane" class="preview-pane" role="region" aria-label="Markdown preview" hidden></div>
-  </main>
+      <!-- Live Split Markdown Preview Pane -->
+      <div id="preview-pane" class="preview-pane" role="region" aria-label="Markdown preview" hidden></div>
+    </main>
+  </div>
 
   <!-- ═══════════════════════════════════════════════════════════════
        STATUS BAR
        ═══════════════════════════════════════════════════════════════ -->
   <footer id="statusbar" class="statusbar" role="contentinfo" aria-label="Status bar">
-    <div class="statusbar__shortcuts" aria-label="Keyboard shortcuts">
-      <kbd class="kbd">⌘/Ctrl</kbd><span class="shortcut-label">+N new</span>
-      <kbd class="kbd">⌘/Ctrl</kbd><span class="shortcut-label">+W close</span>
-      <kbd class="kbd">⌘/Ctrl</kbd><span class="shortcut-label">+P palette</span>
-      <kbd class="kbd">⌘/Ctrl</kbd><span class="shortcut-label">+F find</span>
-      <kbd class="kbd">⌘/Ctrl</kbd><span class="shortcut-label">+M preview</span>
-      <kbd class="kbd">?</kbd><span class="shortcut-label" style="margin-right:0"> shortcuts</span>
-    </div>
-    <div class="statusbar__meta" aria-live="polite" aria-atomic="false">
-      <span id="status-file" class="status-file" aria-label="Current file" hidden></span>
+    <div class="statusbar__left">
       <span id="status-save" class="status-indicator status-indicator--saved" aria-label="Save status">
         <svg class="status-icon" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="var(--col-success)"/></svg>
-        <span id="status-save-text">saved</span>
+        <span id="status-save-text">Saved</span>
       </span>
-      <button id="btn-share" class="share-btn" title="Share active tab (P2P, no account needed)" aria-label="Share active tab">
-        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="13" cy="3" r="2"/><circle cx="3" cy="8" r="2"/><circle cx="13" cy="13" r="2"/>
-          <line x1="4.93" y1="9.03" x2="11.07" y2="11.97"/><line x1="11.07" y1="4.03" x2="4.93" y2="6.97"/>
-        </svg>
-        <span>Share</span>
-      </button>
-      <button id="btn-ontop" class="share-btn" title="Toggle Always on Top" aria-label="Toggle Always on Top" aria-pressed="false">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <line x1="12" y1="17" x2="12" y2="22"></line>
-          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.89A2 2 0 0 0 5 15.24Z"></path>
-        </svg>
-        <span>Pin</span>
-      </button>
-      <button id="btn-history" class="share-btn" title="Version history" aria-label="Open version history" aria-expanded="false">
-        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-          <circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 1.5"/>
-        </svg>
-        <span>History</span>
-      </button>
-      <span id="status-words" class="status-words" aria-label="Word count">0w</span>
-      <span id="status-chars" class="status-chars" aria-label="Character count">0c</span>
-      <span id="status-pos"   class="status-pos"   aria-label="Cursor position">Ln 1, Col 1</span>
-      <span id="status-tabs"  class="status-tabs"  aria-label="Tab count">1 tab</span>
+      <span id="status-file" class="status-file" aria-label="Current file path" hidden></span>
+      <span id="status-lock-state" class="status-badge" hidden>🔒 Encrypted</span>
+    </div>
+    <div class="statusbar__shortcuts" aria-label="Keyboard shortcuts">
+      <kbd class="kbd">⌘/Ctrl</kbd><span class="shortcut-label">+P Palette</span>
+      <kbd class="kbd">⌘/Ctrl</kbd><span class="shortcut-label">+B Sidebar</span>
+      <kbd class="kbd">⌘/Ctrl</kbd><span class="shortcut-label">+M Preview</span>
+      <kbd class="kbd">⌘/Ctrl</kbd><span class="shortcut-label">+F Find</span>
+    </div>
+    <div class="statusbar__meta" aria-live="polite" aria-atomic="false">
+      <span id="status-reading" class="status-meta-item" title="Estimated Reading Time">⏱ 0 sec</span>
+      <span id="status-words" class="status-meta-item" aria-label="Word count">0w</span>
+      <span id="status-chars" class="status-meta-item" aria-label="Character count">0c</span>
+      <span id="status-pos"   class="status-meta-item" aria-label="Cursor position">Ln 1, Col 1</span>
+      <span id="status-tabs"  class="status-meta-item" aria-label="Tab count">1 tab</span>
     </div>
   </footer>
 
   <!-- ═══════════════════════════════════════════════════════════════
-       COMMAND PALETTE
+       COMMAND PALETTE MODAL
        ═══════════════════════════════════════════════════════════════ -->
   <div id="command-palette" class="command-palette" role="dialog" aria-modal="true" aria-label="Command palette" hidden>
     <div class="command-palette__backdrop"></div>
@@ -221,7 +380,7 @@
           id="command-palette-input"
           class="command-palette__input"
           type="text"
-          placeholder="Search tabs, commands…"
+          placeholder="Type a command or search notes…"
           autocomplete="off"
           spellcheck="false"
           aria-autocomplete="list"
@@ -229,7 +388,7 @@
         />
       </div>
       <div id="command-palette-results" class="command-palette__results" role="listbox" aria-label="Results">
-        <!-- Injected by main.js -->
+        <!-- Dynamic command list -->
       </div>
       <div class="command-palette__footer">
         <span><kbd>↑↓</kbd> navigate</span>
@@ -239,426 +398,22 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════
-       SHARE MODAL
-       ═══════════════════════════════════════════════════════════════ -->
-  <div id="share-modal" class="share-modal" role="dialog" aria-modal="true" aria-label="Share notebook tab" hidden>
-    <div class="share-modal__backdrop"></div>
-    <div class="share-modal__panel">
 
-      <div class="share-modal__header">
-        <div class="share-modal__title-row">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="13" cy="3" r="2"/><circle cx="3" cy="8" r="2"/><circle cx="13" cy="13" r="2"/>
-            <line x1="4.93" y1="9.03" x2="11.07" y2="11.97"/><line x1="11.07" y1="4.03" x2="4.93" y2="6.97"/>
-          </svg>
-          <span class="share-modal__title">Share Tab</span>
-        </div>
-        <button id="share-modal-close" class="share-modal__close" aria-label="Close share dialog">×</button>
-      </div>
 
-      <div class="share-tabs" role="tablist" aria-label="Share mode">
-        <button id="share-tab-host"  class="share-tab share-tab--active" role="tab" aria-selected="true"  aria-controls="share-panel-host">📤 Share (Host)</button>
-        <button id="share-tab-guest" class="share-tab"                   role="tab" aria-selected="false" aria-controls="share-panel-guest">📥 Receive (Guest)</button>
-      </div>
-
-      <!-- Host panel -->
-      <div id="share-panel-host" class="share-panel" role="tabpanel" aria-labelledby="share-tab-host">
-        <p class="share-hint">Share your active tab directly with a peer — no account, no cloud storage.</p>
-        <div id="share-host-idle" class="share-host-section">
-          <div class="share-preview" aria-label="Tab being shared">
-            <span class="share-preview__label">Sharing tab</span>
-            <span id="share-preview-title" class="share-preview__title">—</span>
-          </div>
-          <label class="share-label" for="share-sender-name">
-            Your name <span class="share-label-hint">(so they know it's you)</span>
-          </label>
-          <input id="share-sender-name" class="share-code-input" type="text"
-            placeholder="e.g. Alice" maxlength="32" autocomplete="off" spellcheck="false"
-            aria-label="Your name, shown to receiver" />
-          <p class="share-name-note">⚠ Codes are one-time use and expire immediately. Only share the code with the intended person.</p>
-          <button id="btn-generate-code" class="share-confirm-btn">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="13" cy="3" r="2"/><circle cx="3" cy="8" r="2"/><circle cx="13" cy="13" r="2"/>
-              <line x1="4.93" y1="9.03" x2="11.07" y2="11.97"/><line x1="11.07" y1="4.03" x2="4.93" y2="6.97"/>
-            </svg>
-            Generate Code &amp; Share
-          </button>
-        </div>
-        <div id="share-host-active" class="share-host-section" hidden>
-          <div id="share-sender-chip" class="share-sender-chip" hidden>
-            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 8a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-5.33 0-8 2.67-8 4v1h16v-1c0-1.33-2.67-4-8-4z"/></svg>
-            <span id="share-sender-chip-name"></span>
-          </div>
-          <p class="share-label">Give this code to your peer:</p>
-          <div class="share-code-display">
-            <span id="share-code-value" class="share-code-value" aria-live="polite" aria-label="Share code">—</span>
-            <button id="btn-copy-code" class="share-copy-btn" title="Copy to clipboard" aria-label="Copy code to clipboard">
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"/></svg>
-            </button>
-          </div>
-          <p id="share-host-status" class="share-status share-status--waiting" aria-live="polite">⏳ Waiting for peer to connect…</p>
-          <button id="btn-cancel-share" class="share-cancel-btn">Cancel</button>
-        </div>
-        <div id="share-host-done" class="share-host-section" hidden>
-          <p class="share-status share-status--success" aria-live="polite">✅ Tab sent successfully!</p>
-        </div>
-      </div>
-
-      <!-- Guest panel -->
-      <div id="share-panel-guest" class="share-panel" role="tabpanel" aria-labelledby="share-tab-guest" hidden>
-        <p class="share-hint">Enter the code from your peer to receive their tab as a new tab in your notebook.</p>
-        <div id="share-guest-idle">
-          <label class="share-label" for="share-code-input">Enter share code:</label>
-          <div class="share-input-row">
-            <input id="share-code-input" class="share-code-input" type="text"
-              placeholder="e.g. 7-crossover-alpha" maxlength="40"
-              autocomplete="off" spellcheck="false" aria-label="Share code from peer" />
-            <button id="btn-receive-code" class="share-action-btn">Connect</button>
-          </div>
-        </div>
-        <div id="share-guest-waiting" hidden>
-          <p class="share-status share-status--waiting" aria-live="polite">⏳ Connecting to peer…</p>
-          <button id="btn-cancel-receive" class="share-cancel-btn">Cancel</button>
-        </div>
-        <div id="share-guest-done" hidden>
-          <p id="share-guest-done-msg" class="share-status share-status--success" aria-live="polite"></p>
-        </div>
-      </div>
-
-      <p id="share-error" class="share-error" aria-live="assertive" hidden></p>
-    </div>
+  <!-- Context Menu -->
+  <div id="context-menu" class="context-menu" role="menu" hidden>
+    <div id="ctx-rename" class="context-menu__item" role="menuitem">Rename Tab</div>
+    <div id="ctx-duplicate" class="context-menu__item" role="menuitem">Duplicate Tab</div>
+    <div id="ctx-pin" class="context-menu__item" role="menuitem">Pin Tab</div>
+    <div class="context-menu__divider"></div>
+    <div id="ctx-close-others" class="context-menu__item" role="menuitem">Close Other Tabs</div>
+    <div id="ctx-close" class="context-menu__item context-menu__item--danger" role="menuitem">Close Tab</div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════
-       OPEN FILE MODAL
-       ═══════════════════════════════════════════════════════════════ -->
-  <div id="open-modal" class="open-modal" role="dialog" aria-modal="true" aria-label="Open file" hidden>
-    <div class="open-modal__backdrop"></div>
-    <div class="open-modal__panel">
-      <div class="open-modal__header">
-        <span class="open-modal__title">Open File</span>
-        <button id="open-modal-close" class="share-modal__close" aria-label="Close">×</button>
-      </div>
-      <label class="share-label" for="open-path-input">File path</label>
-      <input id="open-path-input" class="share-code-input" type="text"
-        placeholder="/Users/you/notes.md or ~/docs/file.txt"
-        autocomplete="off" spellcheck="false" aria-label="File path to open" />
-      <p id="open-modal-err" class="share-error" hidden></p>
-      <div class="open-modal__actions">
-        <button id="open-modal-confirm" class="share-confirm-btn">Open</button>
-      </div>
-    </div>
-  </div>
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <!-- ═══════════════════════════════════════════════════════════════
-       SAVE AS MODAL
-       ═══════════════════════════════════════════════════════════════ -->
-  <div id="saveas-modal" class="open-modal" role="dialog" aria-modal="true" aria-label="Save file as" hidden>
-    <div class="open-modal__backdrop"></div>
-    <div class="open-modal__panel">
-      <div class="open-modal__header">
-        <span class="open-modal__title">Save As</span>
-        <button id="saveas-modal-close" class="share-modal__close" aria-label="Close">×</button>
-      </div>
-      <label class="share-label" for="saveas-path-input">Save to path</label>
-      <input id="saveas-path-input" class="share-code-input" type="text"
-        placeholder="/Users/you/notes.md"
-        autocomplete="off" spellcheck="false" aria-label="Destination file path" />
-      <p id="saveas-modal-err" class="share-error" hidden></p>
-      <div class="open-modal__actions">
-        <button id="saveas-modal-confirm" class="share-confirm-btn">Save</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       UNLOCK MODAL (Shown on start if file is encrypted)
-       ═══════════════════════════════════════════════════════════════ -->
-  <div id="unlock-modal" class="open-modal" role="dialog" aria-modal="true" aria-label="Unlock octoNote" hidden style="z-index:9999;">
-    <div class="open-modal__backdrop" style="background:var(--col-bg)"></div>
-    <div class="open-modal__panel">
-      <div class="open-modal__header">
-        <span class="open-modal__title">🔒 Storage Locked</span>
-      </div>
-      <p class="share-hint">Your state file is encrypted.</p>
-      <input id="unlock-password-input" class="share-code-input" type="password"
-        placeholder="Enter password"
-        autocomplete="off" spellcheck="false" aria-label="Decryption password" />
-      <p id="unlock-modal-err" class="share-error" hidden></p>
-      <div class="open-modal__actions">
-        <button id="unlock-modal-confirm" class="share-confirm-btn">Unlock</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       SET PASSWORD MODAL
-       ═══════════════════════════════════════════════════════════════ -->
-  <div id="setpass-modal" class="open-modal" role="dialog" aria-modal="true" aria-label="Set Password" hidden>
-    <div class="open-modal__backdrop"></div>
-    <div class="open-modal__panel">
-      <div class="open-modal__header">
-        <span class="open-modal__title">Enable Encryption</span>
-        <button id="setpass-modal-close" class="share-modal__close" aria-label="Close">×</button>
-      </div>
-      <label class="share-label" for="setpass-password-input">New Password</label>
-      <input id="setpass-password-input" class="share-code-input" type="password"
-        placeholder="Minimum 4 characters"
-        autocomplete="off" spellcheck="false" aria-label="New encryption password" />
-      <p id="setpass-modal-err" class="share-error" hidden></p>
-      <div class="open-modal__actions">
-        <button id="setpass-modal-confirm" class="share-confirm-btn">Enable</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       SETTINGS PANEL
-       ═══════════════════════════════════════════════════════════════ -->
-  <div id="settings-panel" class="settings-panel" role="dialog" aria-modal="true" aria-label="Settings" hidden>
-    <div class="settings-panel__backdrop"></div>
-    <div class="settings-panel__panel">
-      <div class="settings-panel__header">
-        <span class="settings-panel__title">⚙ Settings</span>
-        <button id="settings-close" class="share-modal__close" aria-label="Close settings">×</button>
-      </div>
-      <div class="settings-panel__body">
-        <!-- Appearance section -->
-        <section aria-labelledby="section-appearance">
-          <p class="settings-section__title" id="section-appearance">Appearance</p>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row__label">Theme</div>
-              <div class="settings-row__desc">Choose light, dark, or system preference</div>
-            </div>
-            <div class="theme-selector" role="radiogroup" aria-label="Theme">
-              <button class="theme-pill" data-theme-val="dark"   aria-pressed="true">Dark</button>
-              <button class="theme-pill" data-theme-val="light"  aria-pressed="false">Light</button>
-              <button class="theme-pill" data-theme-val="system" aria-pressed="false">System</button>
-            </div>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row__label">Editor Font</div>
-              <div class="settings-row__desc">Monospace font used in the editor</div>
-            </div>
-            <select id="setting-font" class="settings-select" aria-label="Editor font">
-              <option value="jetbrains">JetBrains Mono</option>
-              <option value="fira">Fira Code</option>
-              <option value="cascadia">Cascadia Code</option>
-              <option value="system">System Monospace</option>
-            </select>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row__label">Editor Font Size</div>
-              <div class="settings-row__desc">Base font size (px) for the editor</div>
-            </div>
-            <select id="setting-fontsize" class="settings-select" aria-label="Editor font size">
-              <option value="13">13px</option>
-              <option value="14">14px</option>
-              <option value="15" selected>15px</option>
-              <option value="16">16px</option>
-              <option value="18">18px</option>
-              <option value="20">20px</option>
-            </select>
-          </div>
-        </section>
-
-        <!-- Editor section -->
-        <section aria-labelledby="section-editor">
-          <p class="settings-section__title" id="section-editor">Editor</p>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row__label">Word Wrap</div>
-              <div class="settings-row__desc">Wrap long lines in the editor</div>
-            </div>
-            <label class="toggle" aria-label="Toggle word wrap">
-              <input type="checkbox" id="setting-wordwrap" checked />
-              <span class="toggle__slider"></span>
-            </label>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row__label">Auto-title from Content</div>
-              <div class="settings-row__desc">Set tab title from first heading or line</div>
-            </div>
-            <label class="toggle" aria-label="Toggle auto-title">
-              <input type="checkbox" id="setting-autotitle" checked />
-              <span class="toggle__slider"></span>
-            </label>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row__label">Show Line Numbers</div>
-              <div class="settings-row__desc">Display line number gutter</div>
-            </div>
-            <label class="toggle" aria-label="Toggle line numbers">
-              <input type="checkbox" id="setting-linenums" checked />
-              <span class="toggle__slider"></span>
-            </label>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row__label">Highlight Active Line</div>
-              <div class="settings-row__desc">Subtle highlight on the current line</div>
-            </div>
-            <label class="toggle" aria-label="Toggle active line highlight">
-              <input type="checkbox" id="setting-activeline" checked />
-              <span class="toggle__slider"></span>
-            </label>
-          </div>
-        </section>
-        <!-- Security section -->
-        <section aria-labelledby="section-security">
-          <p class="settings-section__title" id="section-security">Security</p>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row__label">State Encryption</div>
-              <div class="settings-row__desc">Encrypt local data at rest</div>
-            </div>
-            <button id="btn-settings-encryption" class="share-btn">Enable</button>
-          </div>
-        </section>
-
-        <!-- About section -->
-        <section aria-labelledby="section-about">
-          <p class="settings-section__title" id="section-about">About</p>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row__label">octoNote</div>
-              <div class="settings-row__desc" id="settings-about-info">v2.0 — Lightning-fast scratchpad</div>
-            </div>
-            <button id="btn-settings-storage" class="share-btn" aria-label="Show storage directory">Storage Dir</button>
-          </div>
-        </section>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       KEYBOARD SHORTCUTS OVERLAY
-       ═══════════════════════════════════════════════════════════════ -->
-  <div id="shortcuts-overlay" class="shortcuts-overlay" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" hidden>
-    <div class="shortcuts-overlay__backdrop"></div>
-    <div class="shortcuts-overlay__panel">
-      <div class="shortcuts-overlay__header">
-        <span class="shortcuts-overlay__title">⌨ Keyboard Shortcuts</span>
-        <button id="shortcuts-close" class="share-modal__close" aria-label="Close shortcuts">×</button>
-      </div>
-      <div class="shortcuts-overlay__body">
-        <div class="shortcuts-group">
-          <p class="shortcuts-group__title">Tabs</p>
-          <table class="shortcuts-table"><tbody>
-            <tr><td>New tab</td>                   <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>N</kbd></div></td></tr>
-            <tr><td>Close tab</td>                  <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>W</kbd></div></td></tr>
-            <tr><td>Next tab</td>                   <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Tab</kbd></div></td></tr>
-            <tr><td>Previous tab</td>               <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Tab</kbd></div></td></tr>
-            <tr><td>Jump to tab 1-9</td>            <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>1-9</kbd></div></td></tr>
-            <tr><td>Duplicate tab</td>              <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>D</kbd></div></td></tr>
-            <tr><td>Rename tab</td>                 <td><div class="shortcut-keys"><kbd>dblclick</kbd></div></td></tr>
-          </tbody></table>
-        </div>
-        <div class="shortcuts-group">
-          <p class="shortcuts-group__title">File</p>
-          <table class="shortcuts-table"><tbody>
-            <tr><td>Open file</td>                  <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>O</kbd></div></td></tr>
-            <tr><td>Save to file</td>               <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>S</kbd></div></td></tr>
-            <tr><td>Save as…</td>                   <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></div></td></tr>
-          </tbody></table>
-        </div>
-        <div class="shortcuts-group">
-          <p class="shortcuts-group__title">Interface</p>
-          <table class="shortcuts-table"><tbody>
-            <tr><td>Command palette</td>            <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>P</kbd></div></td></tr>
-            <tr><td>Find in tab</td>                <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>F</kbd></div></td></tr>
-            <tr><td>Find &amp; replace</td>         <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>H</kbd></div></td></tr>
-            <tr><td>Toggle markdown preview</td>    <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>M</kbd></div></td></tr>
-            <tr><td>Distraction-free mode</td>      <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd></div></td></tr>
-            <tr><td>Version history</td>            <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>H</kbd></div></td></tr>
-            <tr><td>Settings</td>                   <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>,</kbd></div></td></tr>
-            <tr><td>This overlay</td>               <td><div class="shortcut-keys"><kbd>?</kbd></div></td></tr>
-            <tr><td>Always on Top</td>              <td>Pin button in status bar</td></tr>
-          </tbody></table>
-        </div>
-        <div class="shortcuts-group">
-          <p class="shortcuts-group__title">Sharing</p>
-          <table class="shortcuts-table"><tbody>
-            <tr><td>Share active tab</td>           <td>Share button in status bar</td></tr>
-            <tr><td>Font size up/down</td>          <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>+/-</kbd></div></td></tr>
-            <tr><td>Reset font size</td>            <td><div class="shortcut-keys"><kbd>Ctrl</kbd><kbd>0</kbd></div></td></tr>
-          </tbody></table>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       EXPORT PANEL
-       ═══════════════════════════════════════════════════════════════ -->
-  <div id="export-panel" class="export-panel" role="dialog" aria-modal="true" aria-label="Export" hidden>
-    <div class="export-panel__backdrop"></div>
-    <div class="export-panel__panel">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <span class="export-panel__title">Export</span>
-        <button id="export-close" class="share-modal__close" aria-label="Close export">×</button>
-      </div>
-      <div class="export-grid">
-        <button class="export-option" id="export-md"  aria-label="Export as Markdown">
-          <span class="export-option__icon">📝</span><span>Markdown (.md)</span>
-        </button>
-        <button class="export-option" id="export-txt" aria-label="Export as plain text">
-          <span class="export-option__icon">📄</span><span>Plain Text (.txt)</span>
-        </button>
-        <button class="export-option" id="export-html" aria-label="Export as HTML">
-          <span class="export-option__icon">🌐</span><span>HTML (.html)</span>
-        </button>
-        <button class="export-option" id="export-clip" aria-label="Copy to clipboard">
-          <span class="export-option__icon">📋</span><span>Copy to Clipboard</span>
-        </button>
-      </div>
-      <div style="border-top:1px solid var(--col-border);padding-top:12px">
-        <p class="share-hint" style="margin-bottom:8px">Export all tabs</p>
-        <button class="export-option" id="export-all" style="width:100%;display:flex;flex-direction:row;gap:8px;justify-content:center" aria-label="Export all tabs as zip">
-          <span class="export-option__icon">🗜️</span><span>All Tabs as ZIP</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       TAB CONTEXT MENU
-       ═══════════════════════════════════════════════════════════════ -->
-  <menu id="context-menu" class="context-menu" role="menu" aria-label="Tab actions" hidden>
-    <button class="context-menu__item" id="ctx-rename" role="menuitem">
-      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M11 2l3 3-8 8H3v-3L11 2z"/></svg>
-      Rename
-    </button>
-    <button class="context-menu__item" id="ctx-duplicate" role="menuitem">
-      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"/></svg>
-      Duplicate
-    </button>
-    <button class="context-menu__item" id="ctx-pin" role="menuitem">
-      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M9 2l5 5-2 2-3-1-4 4-1-1 4-4-1-3 2-2z"/><line x1="3" y1="13" x2="6" y2="10"/></svg>
-      Pin Tab
-    </button>
-    <div class="context-menu__sep" role="separator"></div>
-    <button class="context-menu__item" id="ctx-close-others" role="menuitem">Close Others</button>
-    <button class="context-menu__item context-menu__item--danger" id="ctx-close" role="menuitem">
-      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
-      Close
-    </button>
-  </menu>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       TOAST NOTIFICATION CONTAINER
-       ═══════════════════════════════════════════════════════════════ -->
-  <div id="toast-container" class="toast-container" role="region" aria-live="assertive" aria-label="Notifications"></div>
-
-  <!-- Wails runtime (injected automatically) -->
-  <script src="/wails/ipc.js"></script>
-  <script src="/wails/runtime.js"></script>
-  <script src="main.js" type="module"></script>
+  <!-- App logic script -->
+  <script src="main.js"></script>
 </body>
 </html>

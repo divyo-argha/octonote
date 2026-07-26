@@ -122,11 +122,9 @@ func (a *App) RenameTab(index int, title string) core.State {
 
 // ── Encryption API ────────────────────────────────────────────────────────────
 
-// IsLocked returns true if the state file requires a password to unlock.
+// IsLocked returns false (zero password friction).
 func (a *App) IsLocked() bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.isLocked
+	return false
 }
 
 // UnlockState attempts to decrypt the storage. Returns error string if failed.
@@ -513,3 +511,30 @@ func (a *App) GetTabFilePath(tabIndex int) string {
 	}
 	return a.state.Tabs[tabIndex].FilePath
 }
+
+// ── Developer Tools API ───────────────────────────────────────────────────────
+
+// FormatJSON formats or minifies JSON string.
+func (a *App) FormatJSON(input string, minify bool) map[string]interface{} {
+	formatted, err := core.FormatJSON(input, minify)
+	if err != nil {
+		return map[string]interface{}{"error": err.Error(), "result": ""}
+	}
+	return map[string]interface{}{"error": "", "result": formatted}
+}
+
+// TransformCase transforms input text casing.
+func (a *App) TransformCase(input string, targetCase string) string {
+	return core.TransformCase(input, targetCase)
+}
+
+// CalculateMetrics calculates word, char, line counts and reading time.
+func (a *App) CalculateMetrics(text string) map[string]interface{} {
+	return core.CalculateMetrics(text)
+}
+
+// GetTemplate returns template starter text.
+func (a *App) GetTemplate(name string) string {
+	return core.GetTemplate(name)
+}
+

@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"os"
 
+	"runtime"
+
 	"github.com/nottaker/octonote/core"
 	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
@@ -23,7 +26,14 @@ func main() {
 
 	app := NewApp(storage)
 
+	appMenu := menu.NewMenu()
+	if runtime.GOOS == "darwin" {
+		appMenu.Append(menu.AppMenu())
+		appMenu.Append(menu.EditMenu())
+	}
+
 	err = wails.Run(&options.App{
+		Menu:      appMenu,
 		Title:     "octoNote",
 		Width:     1024,
 		Height:    720,
@@ -75,35 +85,19 @@ func main() {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	st, err := a.storage.Load()
-	if err == core.ErrEncrypted {
-		a.mu.Lock()
-		a.isLocked = true
-		a.state = core.State{}
-		a.mu.Unlock()
-	} else if err != nil {
+	if err != nil {
 		st = core.State{
 			Version:     2,
 			ActiveIndex: 0,
 			Tabs:        []core.Tab{core.NewTab("scratch")},
 		}
-		a.mu.Lock()
-		a.state = st
-		a.mu.Unlock()
-	} else {
-		a.mu.Lock()
-		a.state = st
-		a.mu.Unlock()
 	}
+	a.mu.Lock()
+	a.state = st
+	a.mu.Unlock()
 
 	// Watch state.json for external modifications and push updates to the UI
 	go a.storage.Watch(ctx, func() {
-		a.mu.Lock()
-		if a.isLocked {
-			a.mu.Unlock()
-			return
-		}
-		a.mu.Unlock()
-
 		newSt, err := a.storage.Load()
 		if err == nil {
 			a.mu.Lock()

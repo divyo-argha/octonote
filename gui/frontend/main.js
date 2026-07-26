@@ -1,2016 +1,885 @@
 /* ══════════════════════════════════════════════════════════════════════════════
-   octoNote v2.0 — Frontend Logic
+   octoNote v2.0 — Modern Frontend Logic & State Controller
    ══════════════════════════════════════════════════════════════════════════════ */
 
-// ── DOM References ────────────────────────────────────────────────────────────
+// ── DOM Element References ───────────────────────────────────────────────────
 
-const tabbar       = document.getElementById('tabbar');
-const btnNewTab    = document.getElementById('btn-new-tab');
-const editor       = document.getElementById('editor');
-const editorMain   = document.getElementById('editor-main');
-const editorHighlight = document.getElementById('editor-highlight');
-const editorActiveLine = document.getElementById('editor-active-line');
-const lineGutter   = document.getElementById('line-gutter');
-const previewPane  = document.getElementById('preview-pane');
-const statusSave   = document.getElementById('status-save');
-const statusSaveTx = document.getElementById('status-save-text');
-const statusPos    = document.getElementById('status-pos');
-const statusWords  = document.getElementById('status-words');
-const statusChars  = document.getElementById('status-chars');
-const statusTabs   = document.getElementById('status-tabs');
-const statusFile   = document.getElementById('status-file');
-const btnMinimize  = document.getElementById('btn-minimize');
-const btnMaximize  = document.getElementById('btn-maximize');
-const btnClose     = document.getElementById('btn-close');
-const btnOntop     = document.getElementById('btn-ontop');
-const btnPreview   = document.getElementById('btn-preview');
-const btnHistory   = document.getElementById('btn-history');
-const historyPanel = document.getElementById('history-panel');
-const historyList  = document.getElementById('history-list');
-const btnHistoryClose   = document.getElementById('btn-history-close');
-const btnHistoryRestore = document.getElementById('btn-history-restore');
+const titlebar             = document.getElementById('titlebar');
+const tabbar               = document.getElementById('tabbar');
+const btnNewTab            = document.getElementById('btn-new-tab');
+const btnSidebarToggle     = document.getElementById('btn-sidebar-toggle');
+const sidebarPane          = document.getElementById('sidebar-pane');
+const editor               = document.getElementById('editor');
+const editorMain           = document.getElementById('editor-main');
+const editorHighlight      = document.getElementById('editor-highlight');
+const editorActiveLine     = document.getElementById('editor-active-line');
+const lineGutter           = document.getElementById('line-gutter');
+const previewPane          = document.getElementById('preview-pane');
 
-// File modals
-const openModal        = document.getElementById('open-modal');
-const openPathInput    = document.getElementById('open-path-input');
-const openModalErr     = document.getElementById('open-modal-err');
-const openModalConfirm = document.getElementById('open-modal-confirm');
-const openModalClose   = document.getElementById('open-modal-close');
-const saveasModal        = document.getElementById('saveas-modal');
-const saveasPathInput    = document.getElementById('saveas-path-input');
-const saveasModalErr     = document.getElementById('saveas-modal-err');
-const saveasModalConfirm = document.getElementById('saveas-modal-confirm');
-const saveasModalClose   = document.getElementById('saveas-modal-close');
+// Action Buttons
+const btnCommandPalette    = document.getElementById('btn-command-palette');
+// Lock variables removed
+const btnPreview           = document.getElementById('btn-preview');
+const btnZen               = document.getElementById('btn-zen');
+const btnMinimize          = document.getElementById('btn-minimize');
+const btnMaximize          = document.getElementById('btn-maximize');
+const btnClose             = document.getElementById('btn-close');
 
-// Find/Replace bar
-const searchBar          = document.getElementById('search-bar');
-const searchFindInput    = document.getElementById('search-find-input');
-const searchCount        = document.getElementById('search-count');
-const btnSearchPrev      = document.getElementById('btn-search-prev');
-const btnSearchNext      = document.getElementById('btn-search-next');
-const btnSearchCase      = document.getElementById('btn-search-case');
-const btnSearchRegex     = document.getElementById('btn-search-regex');
-const btnSearchClose     = document.getElementById('btn-search-close');
-const btnSearchReplaceToggle = document.getElementById('btn-search-replace-toggle');
-const searchReplaceRow   = document.getElementById('search-replace-row');
-const searchReplaceInput = document.getElementById('search-replace-input');
-const btnReplaceOne      = document.getElementById('btn-replace-one');
-const btnReplaceAll      = document.getElementById('btn-replace-all');
+// Sidebar Elements
+const sidebarSearchInput   = document.getElementById('sidebar-search-input');
+const sidebarNotesList     = document.getElementById('sidebar-notes-list');
+const btnSidebarNewNote    = document.getElementById('btn-sidebar-new-note');
 
-// Command palette
-const commandPalette      = document.getElementById('command-palette');
-const commandPaletteInput = document.getElementById('command-palette-input');
-const commandPaletteResults = document.getElementById('command-palette-results');
+// Dev Tools Elements
+const btnToolJsonPrettify  = document.getElementById('btn-tool-json-prettify');
+const btnToolJsonMinify    = document.getElementById('btn-tool-json-minify');
+const metricWords          = document.getElementById('metric-words');
+const metricChars          = document.getElementById('metric-chars');
+const metricLines          = document.getElementById('metric-lines');
+const metricReading        = document.getElementById('metric-reading');
 
-// Context menu
-const contextMenu    = document.getElementById('context-menu');
-const ctxRename      = document.getElementById('ctx-rename');
-const ctxDuplicate   = document.getElementById('ctx-duplicate');
-const ctxPin         = document.getElementById('ctx-pin');
-const ctxCloseOthers = document.getElementById('ctx-close-others');
-const ctxClose       = document.getElementById('ctx-close');
+// Status Bar Elements
+const statusSave           = document.getElementById('status-save');
+const statusSaveText       = document.getElementById('status-save-text');
+const statusFile           = document.getElementById('status-file');
+// Removed lock state status
+const statusReading        = document.getElementById('status-reading');
+const statusWords          = document.getElementById('status-words');
+const statusChars          = document.getElementById('status-chars');
+const statusPos            = document.getElementById('status-pos');
+const statusTabs           = document.getElementById('status-tabs');
 
-// Settings
-const settingsPanel  = document.getElementById('settings-panel');
-const settingsClose  = document.getElementById('settings-close');
-const settingFont    = document.getElementById('setting-font');
-const settingFontsize = document.getElementById('setting-fontsize');
-const settingWordwrap = document.getElementById('setting-wordwrap');
-const settingAutotitle = document.getElementById('setting-autotitle');
-const settingLinenums = document.getElementById('setting-linenums');
-const settingActiveline = document.getElementById('setting-activeline');
-const btnSettingsStorage = document.getElementById('btn-settings-storage');
-const themePills     = document.querySelectorAll('.theme-pill');
+// Command Palette Elements
+const commandPalette       = document.getElementById('command-palette');
+const commandPaletteInput  = document.getElementById('command-palette-input');
+const commandPaletteResults= document.getElementById('command-palette-results');
 
-// Shortcuts overlay
-const shortcutsOverlay = document.getElementById('shortcuts-overlay');
-const shortcutsClose   = document.getElementById('shortcuts-close');
+// Find and Replace Elements
+const searchBar            = document.getElementById('search-bar');
+const searchFindInput      = document.getElementById('search-find-input');
+const searchReplaceInput   = document.getElementById('search-replace-input');
+const searchCount          = document.getElementById('search-count');
+const btnSearchPrev        = document.getElementById('btn-search-prev');
+const btnSearchNext        = document.getElementById('btn-search-next');
+const btnSearchClose       = document.getElementById('btn-search-close');
+const btnReplaceOne        = document.getElementById('btn-replace-one');
+const btnReplaceAll        = document.getElementById('btn-replace-all');
 
-// Export panel
-const exportPanel = document.getElementById('export-panel');
-const exportClose = document.getElementById('export-close');
+let searchMatches = [];
+let currentSearchMatchIndex = -1;
 
-// Onboarding
-const welcomeOverlay = document.getElementById('welcome-overlay');
+// Toast Container
+const toastContainer       = document.getElementById('toast-container');
 
-// Toast container
-const toastContainer = document.getElementById('toast-container');
-
-// ── State ─────────────────────────────────────────────────────────────────────
+// ── Application State ─────────────────────────────────────────────────────────
 
 let state = { tabs: [], active_index: 0 };
-let saveTimer = null;
-let saving = false;
-let isAlwaysOnTop = false;
-let pendingCloseAfterSave = false;
+let isSidebarOpen = true;
 let isPreviewOpen = false;
-let isDistractionFree = false;
-let contextMenuTargetIdx = -1;
-let selectedHistoryIdx = -1;
-
-// Version History: per-tab ring buffer (max 50 snapshots)
-const tabHistory = new Map(); // tabID -> [{timestamp, body}]
-const HISTORY_MAX = 50;
-
-// Search state
-const searchState = {
-  query: '',
-  caseSensitive: false,
-  useRegex: false,
-  matches: [],
-  currentMatch: -1,
-};
-
-// Auto-title debounce
-let autoTitleTimer = null;
-
-// Per-tab font size overrides
-const tabFontSizes = new Map(); // tabID -> px number
+let isZenMode = false;
+let saveTimer = null;
+let commandPaletteSelectedIndex = 0;
+let filteredCommands = [];
 
 // Settings (persisted to localStorage)
-const settings = {
+const settings = JSON.parse(localStorage.getItem('octonote_settings')) || {
   theme: 'dark',
   font: 'jetbrains',
   fontSize: 15,
   wordWrap: true,
-  autoTitle: true,
   lineNumbers: true,
   activeLine: true,
+  tabLayout: 'horizontal',
 };
 
-const SAVE_DEBOUNCE_MS = 50;
-const AUTO_TITLE_DEBOUNCE_MS = 1000;
+// ── Theme & Preferences Controller ───────────────────────────────────────────
 
-// ── Markdown Highlight Engine ─────────────────────────────────────────────────
-
-function updateHighlight() {
-  let text = editor.value;
-  // Escape HTML
-  text = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  // Fenced code blocks (``` ... ```)
-  text = text.replace(/^(```(\w*))\n([\s\S]*?)(^```)/gm,
-    (_, open, lang, body, close) =>
-      `<span class="md-fence">${open}</span><span class="md-code-lang">${lang}</span>\n<span class="md-fence">${escHtml(body)}</span><span class="md-fence">${close}</span>`
-  );
-
-  // Headers (h1-h6) — each level styled differently
-  text = text.replace(/^(#{6}\s+)(.*)$/gm, '<span class="md-h4">$1$2</span>');
-  text = text.replace(/^(#{5}\s+)(.*)$/gm, '<span class="md-h4">$1$2</span>');
-  text = text.replace(/^(#{4}\s+)(.*)$/gm, '<span class="md-h4">$1$2</span>');
-  text = text.replace(/^(#{3}\s+)(.*)$/gm, '<span class="md-h3">$1$2</span>');
-  text = text.replace(/^(#{2}\s+)(.*)$/gm, '<span class="md-h2">$1$2</span>');
-  text = text.replace(/^(#{1}\s+)(.*)$/gm, '<span class="md-h1">$1$2</span>');
-
-  // Horizontal rules
-  text = text.replace(/^(---+|\*\*\*+|___+)$/gm, '<span class="md-hr">$1</span>');
-
-  // Task lists
-  text = text.replace(/^(\s*[-*+]\s+\[x\]\s+)(.*)$/gim, '<span class="md-task-done">$1$2</span>');
-  text = text.replace(/^(\s*[-*+]\s+\[ \]\s+)(.*)$/gm,  '<span class="md-task-open">$1$2</span>');
-
-  // Lists
-  text = text.replace(/^(\s*[-*+]\s+)(.*)$/gm, '<span class="md-list">$1</span>$2');
-
-  // Blockquotes
-  text = text.replace(/^(\s*&gt;\s+)(.*)$/gm, '<span class="md-quote">$1$2</span>');
-
-  // Bold+italic (*** or ___)
-  text = text.replace(/(\*\*\*|___)([^\*_]+)(\*\*\*|___)/g, '<span class="md-bold md-italic">$1$2$3</span>');
-  // Bold (** or __)
-  text = text.replace(/(\*\*|__)([^\*_]+)(\*\*|__)/g, '<span class="md-bold">$1$2$3</span>');
-  // Italic (* or _)
-  text = text.replace(/(\*|_)([^\*_\n]+)(\*|_)/g, '<span class="md-italic">$1$2$3</span>');
-  // Strikethrough (~~)
-  text = text.replace(/(~~)([^~\n]+)(~~)/g, '<span class="md-strike">$1$2$3</span>');
-
-  // Inline code (`code`)
-  text = text.replace(/(`[^`\n]+`)/g, '<span class="md-code">$1</span>');
-
-  // Images (before links)
-  text = text.replace(/(!\[.*?\]\(.*?\))/g, '<span class="md-image">$1</span>');
-
-  // Links [text](url)
-  text = text.replace(/(\[.*?\]\(.*?\))/g, '<span class="md-link">$1</span>');
-
-  // Search match highlighting (layered on top)
-  if (searchState.query && searchState.matches.length > 0) {
-    // handled separately via overlay approach
+function applySettings() {
+  document.documentElement.setAttribute('data-theme', settings.theme);
+  
+  // Tab Layout
+  if (tabbar) {
+    tabbar.style.display = (settings.tabLayout === 'vertical') ? 'none' : 'flex';
   }
 
-  if (text.endsWith('\n')) text += ' ';
-  editorHighlight.innerHTML = text;
-}
-
-function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-// ── Markdown Preview Renderer ─────────────────────────────────────────────────
-
-function renderMarkdownPreview(text) {
-  if (!isPreviewOpen) return;
-
-  let html = escHtml(text);
-
-  // Fenced code blocks
-  html = html.replace(/^```(\w*)\n([\s\S]*?)^```/gm, (_, lang, code) =>
-    `<pre><code${lang ? ` data-lang="${lang}"` : ''}>${code.trimEnd()}</code></pre>`
-  );
-
-  // HR
-  html = html.replace(/^(---+|\*\*\*+)$/gm, '<hr/>');
-
-  // Headers
-  html = html.replace(/^######\s+(.*)$/gm, '<h6>$1</h6>');
-  html = html.replace(/^#####\s+(.*)$/gm,  '<h5>$1</h5>');
-  html = html.replace(/^####\s+(.*)$/gm,   '<h4>$1</h4>');
-  html = html.replace(/^###\s+(.*)$/gm,    '<h3>$1</h3>');
-  html = html.replace(/^##\s+(.*)$/gm,     '<h2>$1</h2>');
-  html = html.replace(/^#\s+(.*)$/gm,      '<h1>$1</h1>');
-
-  // Task lists (before normal lists)
-  html = html.replace(/^\s*[-*+]\s+\[x\]\s+(.*)/gim, '<li style="list-style:none"><input type="checkbox" checked disabled/> $1</li>');
-  html = html.replace(/^\s*[-*+]\s+\[ \]\s+(.*)/gm,  '<li style="list-style:none"><input type="checkbox" disabled/> $1</li>');
-
-  // Blockquotes
-  html = html.replace(/^&gt;\s+(.*)/gm, '<blockquote>$1</blockquote>');
-
-  // Bold+italic
-  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-  html = html.replace(/___(.+?)___/g, '<strong><em>$1</em></strong>');
-  // Bold
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
-  // Italic
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  html = html.replace(/_(.+?)_/g, '<em>$1</em>');
-  // Strikethrough
-  html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
-
-  // Inline code
-  html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
-
-  // Images (before links)
-  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%"/>');
-
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-
-  // Unordered lists
-  html = html.replace(/^[\s]*[-*+]\s+(.*)/gm, '<li>$1</li>');
-
-  // Ordered lists
-  html = html.replace(/^[\s]*\d+\.\s+(.*)/gm, '<li>$1</li>');
-
-  // Tables
-  html = html.replace(/^\|(.+)\|$/gm, (_, row) => {
-    if (/^[-| ]+$/.test(row)) return '<tr class="__sep__"></tr>';
-    const cells = row.split('|').map(c => `<td>${c.trim()}</td>`).join('');
-    return `<tr>${cells}</tr>`;
-  });
-  html = html.replace(/(<tr>.*?<\/tr>)/gs, m => {
-    return `<table>${m.replace(/<tr class="__sep__"><\/tr>/g,'')}</table>`;
-  });
-
-  // Paragraphs — wrap standalone lines
-  html = html.replace(/^(?!<[hH\d]|<pre|<hr|<blockquote|<ul|<ol|<li|<table|<tr)([^\n<].+)$/gm, '<p>$1</p>');
-
-  previewPane.innerHTML = html;
-}
-
-// ── Line Numbers Gutter ───────────────────────────────────────────────────────
-
-function updateLineGutter() {
-  if (!settings.lineNumbers) { lineGutter.style.display = 'none'; return; }
-  lineGutter.style.display = '';
-
-  const lines = editor.value.split('\n');
-  const lineCount = lines.length;
-  const cursorLine = getCursorLine();
-
-  // Reuse existing elements if count unchanged
-  const existing = lineGutter.children;
-  if (existing.length !== lineCount) {
-    lineGutter.innerHTML = '';
-    for (let i = 0; i < lineCount; i++) {
-      const span = document.createElement('span');
-      span.className = 'line-gutter__line' + (i === cursorLine ? ' line-gutter__line--active' : '');
-      span.textContent = i + 1;
-      lineGutter.appendChild(span);
-    }
+  // Font Family
+  if (settings.font === 'fira') {
+    editor.style.fontFamily = "'Fira Code', monospace";
+  } else if (settings.font === 'inter') {
+    editor.style.fontFamily = "'Inter', sans-serif";
+  } else if (settings.font === 'outfit') {
+    editor.style.fontFamily = "'Outfit', sans-serif";
+  } else if (settings.font === 'system') {
+    editor.style.fontFamily = "monospace";
   } else {
-    for (let i = 0; i < lineCount; i++) {
-      existing[i].className = 'line-gutter__line' + (i === cursorLine ? ' line-gutter__line--active' : '');
-    }
+    editor.style.fontFamily = "'JetBrains Mono', monospace";
   }
 
-  // Sync gutter scroll with editor scroll
-  lineGutter.scrollTop = editor.scrollTop;
+  // Font Size
+  editor.style.fontSize = settings.fontSize + 'px';
+  editorHighlight.style.fontSize = settings.fontSize + 'px';
+  lineGutter.style.fontSize = settings.fontSize + 'px';
+
+  const fontSizeVal = document.getElementById('setting-fontsize-val');
+  if (fontSizeVal) fontSizeVal.textContent = settings.fontSize + 'px';
+
+  // Word Wrap
+  editor.style.whiteSpace = settings.wordWrap ? 'pre-wrap' : 'pre';
+  editorHighlight.style.whiteSpace = settings.wordWrap ? 'pre-wrap' : 'pre';
+
+  // Line Numbers
+  lineGutter.style.display = settings.lineNumbers ? 'block' : 'none';
+
+  // Active Line
+  editorActiveLine.style.display = settings.activeLine ? 'block' : 'none';
+
+  // Update theme pills active state
+  document.querySelectorAll('.theme-pill').forEach(pill => {
+    pill.classList.toggle('active', pill.getAttribute('data-theme') === settings.theme);
+  });
+
+  const tabLayoutSel = document.getElementById('setting-tab-layout');
+  if (tabLayoutSel) tabLayoutSel.value = settings.tabLayout || 'horizontal';
+
+  localStorage.setItem('octonote_settings', JSON.stringify(settings));
 }
 
-// ── Active Line Highlight ─────────────────────────────────────────────────────
+// ── Init & State Sync ─────────────────────────────────────────────────────────
 
-function updateActiveLine() {
-  if (!settings.activeLine) { editorActiveLine.style.display = 'none'; return; }
-  editorActiveLine.style.display = '';
+window.addEventListener('DOMContentLoaded', () => {
+  applySettings();
+  setupEventListeners();
+  loadStateFromBackend();
 
-  const lineHeight = parseFloat(getComputedStyle(editor).lineHeight);
-  const paddingTop = parseFloat(getComputedStyle(editor).paddingTop);
-  const cursorLine = getCursorLine();
+  // Listen to state changes from Wails backend
+  if (window.runtime) {
+    window.runtime.EventsOn('state:changed', (newState) => {
+      if (!newState || !newState.tabs) return;
+      const currentActive = state.active_index;
+      state = newState;
+      if (currentActive >= 0 && currentActive < state.tabs.length) {
+        state.active_index = currentActive;
+      }
+      renderTabs();
+      renderSidebarNotes();
+      updateEditorContent();
+    });
+  }
+});
 
-  const top = paddingTop + cursorLine * lineHeight - editor.scrollTop;
-  editorActiveLine.style.top = top + 'px';
-  editorActiveLine.style.height = lineHeight + 'px';
-  editorActiveLine.style.left = (settings.lineNumbers ? 'var(--gutter-w)' : '0');
-  editorActiveLine.style.right = '0';
-  editorActiveLine.style.position = 'absolute';
+async function loadStateFromBackend() {
+  if (window.go && window.go.main && window.go.main.App) {
+    try {
+      state = await window.go.main.App.GetState();
+      renderTabs();
+      renderSidebarNotes();
+      updateEditorContent();
+    } catch (err) {
+      console.error('Failed to load state:', err);
+    }
+  }
 }
 
-// ── Tabs Rendering ────────────────────────────────────────────────────────────
+// ── Event Listeners Setup ─────────────────────────────────────────────────────
+
+function setupEventListeners() {
+  // Sidebar Toggle
+  btnSidebarToggle.addEventListener('click', toggleSidebar);
+
+  // New Tab
+  btnNewTab.addEventListener('click', createNewTab);
+  btnSidebarNewNote.addEventListener('click', createNewTab);
+
+  // Editor Input & Cursor Events
+  editor.addEventListener('input', handleEditorInput);
+  editor.addEventListener('keyup', updateCursorPosAndMetrics);
+  editor.addEventListener('click', updateCursorPosAndMetrics);
+  editor.addEventListener('scroll', syncEditorScroll);
+
+  // Sidebar Tab Switcher
+  document.querySelectorAll('.sidebar-tab').forEach(tabBtn => {
+    tabBtn.addEventListener('click', (e) => {
+      document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('sidebar-tab--active'));
+      document.querySelectorAll('.sidebar-view').forEach(v => v.classList.remove('sidebar-view--active'));
+      
+      const targetView = tabBtn.getAttribute('data-view');
+      tabBtn.classList.add('sidebar-tab--active');
+      document.getElementById('view-' + targetView).classList.add('sidebar-view--active');
+    });
+  });
+
+  // Sidebar Notes Search
+  sidebarSearchInput.addEventListener('input', () => {
+    renderSidebarNotes();
+  });
+
+  // Command Palette
+  btnCommandPalette.addEventListener('click', showCommandPalette);
+  
+  // Find and Replace
+  searchFindInput.addEventListener('input', updateSearchMatches);
+  searchFindInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.shiftKey ? navigateSearch(-1) : navigateSearch(1);
+    } else if (e.key === 'Escape') {
+      toggleSearchBar();
+    }
+  });
+  btnSearchNext.addEventListener('click', () => navigateSearch(1));
+  btnSearchPrev.addEventListener('click', () => navigateSearch(-1));
+  btnSearchClose.addEventListener('click', toggleSearchBar);
+  btnReplaceOne.addEventListener('click', replaceCurrentMatch);
+  btnReplaceAll.addEventListener('click', replaceAllMatches);
+
+  // Removed btnLockToggle
+  btnPreview.addEventListener('click', togglePreview);
+  btnZen.addEventListener('click', toggleZenMode);
+
+  // Window Controls
+  if (btnMinimize) btnMinimize.addEventListener('click', () => window.runtime?.WindowMinimise());
+  if (btnMaximize) btnMaximize.addEventListener('click', () => window.runtime?.WindowToggleMaximise());
+  if (btnClose) btnClose.addEventListener('click', () => window.runtime?.Quit());
+
+  // Dev Tools Buttons
+  if (btnToolJsonPrettify) btnToolJsonPrettify.addEventListener('click', () => runJsonFormat(false));
+  if (btnToolJsonMinify) btnToolJsonMinify.addEventListener('click', () => runJsonFormat(true));
+
+  // Case Conversion Buttons
+  document.querySelectorAll('.tool-btn-case').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.getAttribute('data-case');
+      runCaseTransform(mode);
+    });
+  });
+
+  // Quick Template Buttons
+  document.querySelectorAll('.tool-btn-template').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tmplName = btn.getAttribute('data-template');
+      insertTemplate(tmplName);
+    });
+  });
+
+  // Theme Pills in Settings
+  document.querySelectorAll('.theme-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      settings.theme = pill.getAttribute('data-theme');
+      applySettings();
+      showToast(`Theme changed to ${settings.theme}`);
+    });
+  });
+
+  // Settings Controls
+  document.getElementById('setting-tab-layout')?.addEventListener('change', (e) => {
+    settings.tabLayout = e.target.value;
+    applySettings();
+  });
+
+  document.getElementById('setting-font')?.addEventListener('change', (e) => {
+    settings.font = e.target.value;
+    applySettings();
+  });
+
+  document.getElementById('setting-fontsize')?.addEventListener('input', (e) => {
+    settings.fontSize = parseInt(e.target.value, 10);
+    applySettings();
+  });
+
+  document.getElementById('setting-wordwrap')?.addEventListener('change', (e) => {
+    settings.wordWrap = e.target.checked;
+    applySettings();
+  });
+
+  document.getElementById('setting-linenums')?.addEventListener('change', (e) => {
+    settings.lineNumbers = e.target.checked;
+    applySettings();
+  });
+
+  document.getElementById('setting-activeline')?.addEventListener('change', (e) => {
+    settings.activeLine = e.target.checked;
+    applySettings();
+  });
+
+  // Export ZIP
+  document.getElementById('btn-export-zip')?.addEventListener('click', async () => {
+    if (window.go?.main?.App) {
+      showToast('Exporting scratchpads…');
+    }
+  });
+
+  // Command Palette Keyboard Navigation
+  commandPaletteInput.addEventListener('input', renderCommandPaletteResults);
+  commandPaletteInput.addEventListener('keydown', handleCommandPaletteKeydown);
+  commandPalette.querySelector('.command-palette__backdrop').addEventListener('click', hideCommandPalette);
+
+  // Keyboard Shortcuts (Global)
+  window.addEventListener('keydown', handleGlobalKeydown);
+}
+
+// ── Tab Management ────────────────────────────────────────────────────────────
 
 function renderTabs() {
-  tabbar.querySelectorAll('.tab:not(.tab--new)').forEach(el => el.remove());
+  // Clear non-new tabs
+  const existingTabs = tabbar.querySelectorAll('.tab:not(.tab--new)');
+  existingTabs.forEach(t => t.remove());
 
-  state.tabs.forEach((tab, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'tab'
-      + (i === state.active_index ? ' tab--active' : '')
-      + (tab.pinned ? ' tab--pinned' : '');
-    btn.setAttribute('role', 'tab');
-    btn.setAttribute('aria-selected', i === state.active_index ? 'true' : 'false');
-    btn.setAttribute('aria-controls', 'editor');
-    btn.setAttribute('id', `tab-${tab.id}`);
-    btn.setAttribute('title', `${tab.title}\nDouble-click to rename · Right-click for options`);
-    btn.dataset.index = i;
-    btn.draggable = !tab.pinned;
+  if (!state.tabs || state.tabs.length === 0) return;
 
-    const idxSpan = document.createElement('span');
-    idxSpan.className = 'tab__index';
-    idxSpan.textContent = i + 1;
-    idxSpan.setAttribute('aria-hidden', 'true');
+  state.tabs.forEach((tab, index) => {
+    const tabEl = document.createElement('button');
+    tabEl.className = `tab ${index === state.active_index ? 'tab--active' : ''}`;
+    tabEl.setAttribute('role', 'tab');
+    tabEl.setAttribute('aria-selected', index === state.active_index ? 'true' : 'false');
+    tabEl.style.setProperty('--wails-draggable', 'no-drag');
 
-    const titleSpan = document.createElement('span');
-    titleSpan.className = 'tab__title';
-    const isUnsaved = tab.file_is_dirty || (!tab.file_path && (tab.body || '').trim().length > 0);
-    titleSpan.textContent = (isUnsaved ? '● ' : '') + tab.title;
-    if (isUnsaved) titleSpan.style.color = 'var(--col-warn)';
+    let titleText = tab.title || `tab ${index + 1}`;
+    let pinHtml = tab.pinned ? '<svg class="tab__pin-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5v6l1 1 1-1v-6h5v-2l-2-2z"/></svg>' : '';
+    let dirtyHtml = tab.file_is_dirty ? '<span class="tab__dirty-dot"></span>' : '';
 
-    btn.append(idxSpan);
+    tabEl.innerHTML = `
+      ${pinHtml}
+      <span class="tab__title">${escapeHtml(titleText)}</span>
+      ${dirtyHtml}
+      ${state.tabs.length > 1 && !tab.pinned ? `<span class="tab__close" title="Close tab">&times;</span>` : ''}
+    `;
 
-    if (tab.pinned) {
-      const pinIcon = document.createElement('span');
-      pinIcon.className = 'tab__pin-icon';
-      pinIcon.textContent = '📌';
-      pinIcon.setAttribute('aria-hidden', 'true');
-      btn.append(pinIcon);
-    }
-
-    btn.append(titleSpan);
-
-    if (!tab.pinned) {
-      const closeBtn = document.createElement('button');
-      closeBtn.className = 'tab__close';
-      closeBtn.setAttribute('aria-label', `Close tab: ${tab.title}`);
-      closeBtn.setAttribute('title', 'Close tab (Ctrl+W)');
-      closeBtn.textContent = '×';
-      closeBtn.addEventListener('click', e => { e.stopPropagation(); closeTab(i); });
-      btn.append(closeBtn);
-    }
-
-    btn.addEventListener('click', () => switchTab(i));
-    btn.addEventListener('dblclick', () => startRename(btn, titleSpan, i));
-    btn.addEventListener('contextmenu', e => openContextMenu(e, i));
-
-    // Drag-and-drop reordering
-    btn.addEventListener('dragstart', e => {
-      e.dataTransfer.setData('text/plain', String(i));
-      btn.classList.add('tab--dragging');
-    });
-    btn.addEventListener('dragend', () => btn.classList.remove('tab--dragging'));
-    btn.addEventListener('dragover', e => {
-      e.preventDefault();
-      btn.classList.add('tab--drag-over');
-    });
-    btn.addEventListener('dragleave', () => btn.classList.remove('tab--drag-over'));
-    btn.addEventListener('drop', async e => {
-      e.preventDefault();
-      btn.classList.remove('tab--drag-over');
-      const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
-      const toIdx = i;
-      if (fromIdx !== toIdx) await reorderTab(fromIdx, toIdx);
+    // Tab click
+    tabEl.addEventListener('click', (e) => {
+      if (e.target.classList.contains('tab__close')) {
+        e.stopPropagation();
+        closeTab(index);
+      } else {
+        switchActiveTab(index);
+      }
     });
 
-    tabbar.insertBefore(btn, btnNewTab);
+    // Double click to rename
+    tabEl.addEventListener('dblclick', () => {
+      const newTitle = prompt('Rename scratchpad:', tab.title);
+      if (newTitle !== null) {
+        renameTab(index, newTitle);
+      }
+    });
 
-    if (tab._new) {
-      btn.classList.add('tab--entering');
-      delete tab._new;
-    }
+    tabbar.insertBefore(tabEl, btnNewTab);
   });
 
-  const count = state.tabs.length;
-  statusTabs.textContent = `${count} tab${count !== 1 ? 's' : ''}`;
-
-  const activeTabEl = tabbar.querySelector('.tab--active');
-  if (activeTabEl) {
-    setTimeout(() => activeTabEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }), 50);
-  }
+  statusTabs.textContent = `${state.tabs.length} tab${state.tabs.length > 1 ? 's' : ''}`;
 }
 
-// ── Editor Load ───────────────────────────────────────────────────────────────
-
-function loadActiveTabIntoEditor() {
-  const tab = state.tabs[state.active_index];
-  if (!tab) return;
-
-  const tabId = tab.id;
-  const savedSize = tabFontSizes.get(tabId);
-  if (savedSize) {
-    editor.style.fontSize = savedSize + 'px';
-    editorHighlight.style.fontSize = savedSize + 'px';
-  } else {
-    editor.style.fontSize = '';
-    editorHighlight.style.fontSize = '';
-  }
-
-  editor.value = tab.body || '';
-  updateHighlight();
-  updateLineGutter();
-  updateActiveLine();
-  renderMarkdownPreview(editor.value);
-
-  try {
-    const lines = editor.value.split('\n');
-    let pos = 0;
-    for (let l = 0; l < Math.min(tab.cursor_line || 0, lines.length - 1); l++) {
-      pos += lines[l].length + 1;
-    }
-    editor.setSelectionRange(pos, pos);
-  } catch (_) {}
-  editor.focus();
-  updateFileStatus();
-  updateCursorStatus();
-}
-
-// ── Save Logic ────────────────────────────────────────────────────────────────
-
-function scheduleSave() {
-  clearTimeout(saveTimer);
-  setSaveStatus('saving');
-  saveTimer = setTimeout(flushSave, SAVE_DEBOUNCE_MS);
-}
-
-async function flushSave() {
-  const idx = state.active_index;
-  const tab = state.tabs[idx];
-  if (!tab) return;
-
-  const body = editor.value;
-  const cursorLine = getCursorLine();
-
-  state.tabs[idx].body = body;
-  state.tabs[idx].cursor_line = cursorLine;
-
-  try {
-    saving = true;
-    await window.go.main.App.SaveTab(idx, body, cursorLine);
-    setSaveStatus('saved');
-    scheduleHistorySnapshot(tab.id, body);
-  } catch (err) {
-    console.error('octoNote: save failed', err);
-    setSaveStatus('error');
-    showToast('Save failed — ' + String(err), 'error');
-  } finally {
-    saving = false;
-  }
-}
-
-// ── History Management ────────────────────────────────────────────────────────
-
-function scheduleHistorySnapshot(tabId, body) {
-  const history = tabHistory.get(tabId) || [];
-  const lastEntry = history[history.length - 1];
-  // Only snapshot if content actually changed
-  if (lastEntry && lastEntry.body === body) return;
-  history.push({ timestamp: new Date(), body });
-  if (history.length > HISTORY_MAX) history.shift();
-  tabHistory.set(tabId, history);
-  // Refresh history panel if open
-  if (!historyPanel.hidden) renderHistoryPanel();
-}
-
-function renderHistoryPanel() {
-  const tab = state.tabs[state.active_index];
-  if (!tab) return;
-  const history = tabHistory.get(tab.id) || [];
-  historyList.innerHTML = '';
-  if (history.length === 0) {
-    historyList.innerHTML = '<p style="padding:12px;color:var(--col-muted);font-size:0.75rem">No snapshots yet. History is captured as you type.</p>';
-    return;
-  }
-  [...history].reverse().forEach((entry, reversedIdx) => {
-    const idx = history.length - 1 - reversedIdx;
-    const btn = document.createElement('button');
-    btn.className = 'history-entry' + (idx === selectedHistoryIdx ? ' history-entry--active' : '');
-    btn.setAttribute('role', 'listitem');
-    const timeStr = entry.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const preview = entry.body.replace(/\n/g, ' ').slice(0, 60);
-    btn.innerHTML = `<div class="history-entry__time">${timeStr}</div><div class="history-entry__preview">${escHtml(preview) || '<em>empty</em>'}</div>`;
-    btn.addEventListener('click', () => {
-      selectedHistoryIdx = idx;
-      btnHistoryRestore.disabled = false;
-      renderHistoryPanel();
-      // Preview the snapshot in the editor without saving
-      editor.value = entry.body;
-      updateHighlight();
-    });
-    historyList.appendChild(btn);
-  });
-}
-
-btnHistoryRestore.addEventListener('click', async () => {
-  const tab = state.tabs[state.active_index];
-  if (!tab) return;
-  const history = tabHistory.get(tab.id) || [];
-  const entry = history[selectedHistoryIdx];
-  if (!entry) return;
-  editor.value = entry.body;
-  updateHighlight();
-  updateLineGutter();
-  await flushSave();
-  showToast('Version restored ✓', 'success');
-  btnHistoryRestore.disabled = true;
-  selectedHistoryIdx = -1;
-  renderHistoryPanel();
-});
-
-btnHistory.addEventListener('click', () => {
-  const wasHidden = historyPanel.hidden;
-  historyPanel.hidden = !wasHidden;
-  btnHistory.setAttribute('aria-expanded', String(wasHidden));
-  btnHistory.classList.toggle('share-btn--active', wasHidden);
-  if (wasHidden) renderHistoryPanel();
-});
-btnHistoryClose.addEventListener('click', () => {
-  historyPanel.hidden = true;
-  btnHistory.setAttribute('aria-expanded', 'false');
-  btnHistory.classList.remove('share-btn--active');
-});
-
-// ── Tab Operations ────────────────────────────────────────────────────────────
-
-async function switchTab(idx) {
-  if (idx === state.active_index) return;
-  clearTimeout(saveTimer);
-  if (editor.value !== (state.tabs[state.active_index]?.body ?? '')) await flushSave();
-  try {
-    state = await window.go.main.App.SetActiveTab(idx);
-    renderTabs();
-    loadActiveTabIntoEditor();
-    clearSearch();
-  } catch (err) {
-    console.error('octoNote: switch tab failed', err);
-    showToast('Failed to switch tab', 'error');
-  }
-}
-
-async function newTab() {
-  try {
+async function createNewTab() {
+  if (window.go?.main?.App) {
     state = await window.go.main.App.NewTab();
-    if (state.tabs.length > 0) state.tabs[state.tabs.length - 1]._new = true;
     renderTabs();
-    loadActiveTabIntoEditor();
-  } catch (err) {
-    console.error('octoNote: new tab failed', err);
-    showToast('Failed to create tab', 'error');
+    renderSidebarNotes();
+    updateEditorContent();
   }
 }
 
-async function closeTab(idx) {
-  const tab = state.tabs[idx];
-  if (tab?.pinned) { showToast('Unpin this tab before closing', 'warn'); return; }
-  try {
-    state = await window.go.main.App.CloseTab(idx);
-    renderTabs();
-    loadActiveTabIntoEditor();
-  } catch (err) {
-    console.error('octoNote: close tab failed', err);
-    showToast('Failed to close tab', 'error');
-  }
-}
+async function switchActiveTab(index) {
+  if (index < 0 || index >= state.tabs.length) return;
+  if (index === state.active_index) return;
 
-async function duplicateTab(idx) {
-  try {
-    if (window.go?.main?.App?.DuplicateTab) {
-      state = await window.go.main.App.DuplicateTab(idx);
-    } else {
-      // Fallback: manual duplicate
-      const tab = state.tabs[idx];
-      state = await window.go.main.App.NewTab();
-      const newIdx = state.active_index;
-      const newTitle = (tab.title || 'tab') + ' (copy)';
-      state = await window.go.main.App.RenameTab(newIdx, newTitle);
-      await window.go.main.App.SaveTab(newIdx, tab.body || '', 0);
-      state.tabs[newIdx].body = tab.body || '';
+  // Flush pending save for current tab before switching
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    const oldIdx = state.active_index;
+    const body = editor.value;
+    if (window.go?.main?.App && state.tabs[oldIdx]) {
+      state.tabs[oldIdx].body = body;
+      window.go.main.App.SaveTab(oldIdx, body, 0);
     }
-    renderTabs();
-    loadActiveTabIntoEditor();
-    showToast('Tab duplicated', 'success');
-  } catch (err) {
-    showToast('Failed to duplicate tab', 'error');
   }
-}
 
-async function reorderTab(fromIdx, toIdx) {
-  try {
-    if (window.go?.main?.App?.ReorderTabs) {
-      state = await window.go.main.App.ReorderTabs(fromIdx, toIdx);
-    } else {
-      // Fallback: reorder locally
-      const tabs = [...state.tabs];
-      const [moved] = tabs.splice(fromIdx, 1);
-      tabs.splice(toIdx, 0, moved);
-      state.tabs = tabs;
-      let newActive = state.active_index;
-      if (state.active_index === fromIdx) newActive = toIdx;
-      else if (fromIdx < state.active_index && toIdx >= state.active_index) newActive--;
-      else if (fromIdx > state.active_index && toIdx <= state.active_index) newActive++;
-      state.active_index = newActive;
-    }
-    renderTabs();
-    loadActiveTabIntoEditor();
-  } catch (err) {
-    showToast('Failed to reorder tabs', 'error');
-  }
-}
-
-async function pinTab(idx, pinned) {
-  try {
-    if (window.go?.main?.App?.PinTab) {
-      state = await window.go.main.App.PinTab(idx, pinned);
-    } else {
-      state.tabs[idx].pinned = pinned;
-      await window.go.main.App.SaveTab(idx, state.tabs[idx].body, state.tabs[idx].cursor_line);
-    }
-    renderTabs();
-    showToast(pinned ? 'Tab pinned 📌' : 'Tab unpinned', 'success');
-  } catch (err) {
-    showToast('Failed to pin tab', 'error');
-  }
-}
-
-async function closeOtherTabs(keepIdx) {
-  const toClose = state.tabs
-    .map((_, i) => i)
-    .filter(i => i !== keepIdx && !state.tabs[i].pinned)
-    .reverse();
-  for (const i of toClose) {
-    state = await window.go.main.App.CloseTab(i);
-  }
+  state.active_index = index;
   renderTabs();
-  loadActiveTabIntoEditor();
+  renderSidebarNotes();
+  updateEditorContent();
+
+  if (window.go?.main?.App) {
+    window.go.main.App.SetActiveTab(index);
+  }
 }
 
-function startRename(tabBtn, titleSpan, idx) {
-  if (tabBtn.querySelector('.tab-rename-input')) return;
-  const originalTitle = state.tabs[idx].title;
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'tab-rename-input';
-  input.value = originalTitle;
-  input.maxLength = 64;
-  input.setAttribute('aria-label', 'Rename tab');
-
-  titleSpan.replaceWith(input);
-  input.focus(); input.select();
-
-  async function commitRename() {
-    const newTitle = input.value.trim() || originalTitle;
-    try {
-      state = await window.go.main.App.RenameTab(idx, newTitle);
-      renderTabs();
-    } catch (_) { renderTabs(); }
+async function closeTab(index) {
+  if (window.go?.main?.App) {
+    state = await window.go.main.App.CloseTab(index);
+    renderTabs();
+    renderSidebarNotes();
+    updateEditorContent();
   }
+}
 
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
-    if (e.key === 'Escape') { e.preventDefault(); renderTabs(); }
-    e.stopPropagation();
+async function renameTab(index, title) {
+  if (window.go?.main?.App) {
+    state = await window.go.main.App.RenameTab(index, title);
+    renderTabs();
+    renderSidebarNotes();
+  }
+}
+
+// ── Sidebar Explorer ──────────────────────────────────────────────────────────
+
+function renderSidebarNotes() {
+  sidebarNotesList.innerHTML = '';
+  if (!state.tabs) return;
+
+  const query = sidebarSearchInput.value.toLowerCase().trim();
+
+  state.tabs.forEach((tab, index) => {
+    if (query && !tab.title.toLowerCase().includes(query) && !tab.body.toLowerCase().includes(query)) {
+      return;
+    }
+
+    const card = document.createElement('div');
+    card.className = `note-item-card ${index === state.active_index ? 'note-item-card--active' : ''}`;
+    
+    const wordCount = tab.body ? tab.body.trim().split(/\s+/).filter(Boolean).length : 0;
+
+    card.innerHTML = `
+      <div class="note-item-header">
+        <span class="note-item-title">${escapeHtml(tab.title || 'Untitled')}</span>
+        ${tab.pinned ? '📌' : ''}
+      </div>
+      <div class="note-item-sub">${wordCount} words • ${tab.body.length} chars</div>
+    `;
+
+    card.addEventListener('click', () => switchActiveTab(index));
+    sidebarNotesList.appendChild(card);
   });
-  input.addEventListener('blur', commitRename);
 }
 
-// ── Auto-title from Content ───────────────────────────────────────────────────
+function toggleSidebar() {
+  isSidebarOpen = !isSidebarOpen;
+  sidebarPane.classList.toggle('sidebar-pane--collapsed', !isSidebarOpen);
+  btnSidebarToggle.setAttribute('aria-expanded', isSidebarOpen ? 'true' : 'false');
+}
 
-function scheduleAutoTitle() {
-  if (!settings.autoTitle) return;
-  clearTimeout(autoTitleTimer);
-  autoTitleTimer = setTimeout(() => {
-    const idx = state.active_index;
-    const tab = state.tabs[idx];
-    if (!tab) return;
-    // Only auto-title if tab still has the default "tab N" name
-    if (!tab.title.match(/^tab \d+$/i)) return;
+// ── Editor & Auto-Save ────────────────────────────────────────────────────────
 
-    const firstLine = (editor.value || '').split('\n').find(l => l.trim().length > 0) || '';
-    const title = firstLine.replace(/^#+\s*/, '').trim().slice(0, 40);
-    if (title && title !== tab.title) {
-      window.go.main.App.RenameTab(idx, title).then(newState => {
-        state = newState;
-        renderTabs();
-      }).catch(() => {});
+function updateEditorContent() {
+  if (!state.tabs || state.tabs.length === 0) return;
+  const activeTab = state.tabs[state.active_index];
+  if (!activeTab) return;
+
+  if (editor.value !== activeTab.body) {
+    editor.value = activeTab.body || '';
+  }
+
+  statusFile.textContent = activeTab.file_path || '';
+  statusFile.hidden = !activeTab.file_path;
+
+  updateLineNumbers();
+  updateCursorPosAndMetrics();
+  if (isPreviewOpen) renderMarkdownPreview();
+}
+
+function handleEditorInput() {
+  if (state.tabs && state.tabs[state.active_index]) {
+    state.tabs[state.active_index].body = editor.value;
+  }
+  updateLineNumbers();
+  updateCursorPosAndMetrics();
+  triggerAutoSave();
+  if (isPreviewOpen) renderMarkdownPreview();
+}
+
+function triggerAutoSave() {
+  statusSaveText.textContent = 'Saving…';
+  statusSave.classList.remove('status-indicator--saved');
+
+  const activeIdx = state.active_index;
+  const currentBody = editor.value;
+
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    if (window.go?.main?.App && state.tabs[activeIdx]) {
+      const lines = currentBody.substr(0, editor.selectionStart || 0).split('\n');
+      const cursorLine = lines.length - 1;
+
+      await window.go.main.App.SaveTab(activeIdx, currentBody, cursorLine);
+      statusSaveText.textContent = 'Saved';
+      statusSave.classList.add('status-indicator--saved');
     }
-  }, AUTO_TITLE_DEBOUNCE_MS);
+  }, 300);
 }
 
-// ── Context Menu ──────────────────────────────────────────────────────────────
-
-function openContextMenu(e, idx) {
-  e.preventDefault();
-  contextMenuTargetIdx = idx;
-  const tab = state.tabs[idx];
-  ctxPin.textContent = tab.pinned ? '📌 Unpin Tab' : '📌 Pin Tab';
-  contextMenu.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px';
-  contextMenu.style.top  = Math.min(e.clientY, window.innerHeight - 200) + 'px';
-  contextMenu.hidden = false;
-  ctxRename.focus();
-}
-
-function closeContextMenu() {
-  contextMenu.hidden = true;
-  contextMenuTargetIdx = -1;
-}
-
-ctxRename.addEventListener('click', () => {
-  const btn = document.getElementById(`tab-${state.tabs[contextMenuTargetIdx]?.id}`);
-  const titleSpan = btn?.querySelector('.tab__title');
-  if (btn && titleSpan) startRename(btn, titleSpan, contextMenuTargetIdx);
-  closeContextMenu();
-});
-ctxDuplicate.addEventListener('click', () => { duplicateTab(contextMenuTargetIdx); closeContextMenu(); });
-ctxPin.addEventListener('click', () => {
-  const t = state.tabs[contextMenuTargetIdx];
-  if (t) pinTab(contextMenuTargetIdx, !t.pinned);
-  closeContextMenu();
-});
-ctxCloseOthers.addEventListener('click', () => { closeOtherTabs(contextMenuTargetIdx); closeContextMenu(); });
-ctxClose.addEventListener('click', () => { closeTab(contextMenuTargetIdx); closeContextMenu(); });
-
-document.addEventListener('click', e => {
-  if (!contextMenu.contains(e.target)) closeContextMenu();
-});
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeContextMenu();
-});
-
-// ── Command Palette ───────────────────────────────────────────────────────────
-
-const COMMANDS = [
-  { id: 'new-tab',       label: 'New Tab',              icon: '📄', shortcut: 'Ctrl+N',        action: newTab },
-  { id: 'close-tab',     label: 'Close Tab',            icon: '✕',  shortcut: 'Ctrl+W',        action: () => closeTab(state.active_index) },
-  { id: 'duplicate-tab', label: 'Duplicate Tab',        icon: '⎘',  shortcut: 'Ctrl+D',        action: () => duplicateTab(state.active_index) },
-  { id: 'pin-tab',       label: 'Pin / Unpin Tab',      icon: '📌', shortcut: '',              action: () => { const t = state.tabs[state.active_index]; pinTab(state.active_index, !t?.pinned); } },
-  { id: 'open-file',     label: 'Open File…',           icon: '📂', shortcut: 'Ctrl+O',        action: openOpenModal },
-  { id: 'save-file',     label: 'Save to File',         icon: '💾', shortcut: 'Ctrl+S',        action: handleSave },
-  { id: 'save-as',       label: 'Save As…',             icon: '💾', shortcut: 'Ctrl+Shift+S',  action: () => openSaveAsModal() },
-  { id: 'find',          label: 'Find in Tab',          icon: '🔍', shortcut: 'Ctrl+F',        action: openSearch },
-  { id: 'replace',       label: 'Find & Replace',       icon: '🔄', shortcut: 'Ctrl+H',        action: openSearchReplace },
-  { id: 'preview',       label: 'Toggle Markdown Preview', icon: '👁', shortcut: 'Ctrl+M',     action: togglePreview },
-  { id: 'history',       label: 'Version History',      icon: '🕐', shortcut: 'Ctrl+Shift+H',  action: () => { historyPanel.hidden = !historyPanel.hidden; renderHistoryPanel(); } },
-  { id: 'distraction',   label: 'Distraction-free Mode', icon: '🧘', shortcut: 'Ctrl+Shift+F', action: toggleDistractionFree },
-  { id: 'export',        label: 'Export…',              icon: '📤', shortcut: '',              action: () => { exportPanel.hidden = false; } },
-  { id: 'settings',      label: 'Settings',             icon: '⚙',  shortcut: 'Ctrl+,',        action: () => { settingsPanel.hidden = false; } },
-  { id: 'shortcuts',     label: 'Keyboard Shortcuts',   icon: '⌨',  shortcut: '?',             action: () => { shortcutsOverlay.hidden = false; } },
-  { id: 'theme-dark',    label: 'Theme: Dark',          icon: '🌙', shortcut: '',              action: () => applyTheme('dark') },
-  { id: 'theme-light',   label: 'Theme: Light',         icon: '☀', shortcut: '',              action: () => applyTheme('light') },
-  { id: 'theme-system',  label: 'Theme: System',        icon: '🖥', shortcut: '',              action: () => applyTheme('system') },
-];
-
-let paletteActiveIdx = -1;
-let paletteItems = [];
-
-function openCommandPalette() {
-  commandPalette.hidden = false;
-  commandPaletteInput.value = '';
-  renderPaletteResults('');
-  commandPaletteInput.focus();
-}
-
-function closeCommandPalette() {
-  commandPalette.hidden = true;
-  editor.focus();
-}
-
-function renderPaletteResults(query) {
-  commandPaletteResults.innerHTML = '';
-  paletteItems = [];
-  paletteActiveIdx = -1;
-  const q = query.toLowerCase().trim();
-
-  // Tab results
-  const matchingTabs = state.tabs.filter((t, i) =>
-    !q || t.title.toLowerCase().includes(q) || (t.body || '').toLowerCase().includes(q)
-  );
-  if (matchingTabs.length > 0) {
-    const label = document.createElement('div');
-    label.className = 'command-palette__group-label';
-    label.textContent = 'Tabs';
-    commandPaletteResults.appendChild(label);
-    matchingTabs.slice(0, 5).forEach(tab => {
-      const idx = state.tabs.findIndex(t => t.id === tab.id);
-      const preview = (tab.body || '').replace(/\n/g, ' ').slice(0, 60);
-      const btn = makePaletteItem('📄', tab.title, preview, '', () => { switchTab(idx); closeCommandPalette(); });
-      commandPaletteResults.appendChild(btn);
-      paletteItems.push(btn);
-    });
+function updateLineNumbers() {
+  if (!settings.lineNumbers) return;
+  const lines = editor.value.split('\n').length;
+  let numbersHtml = '';
+  for (let i = 1; i <= lines; i++) {
+    numbersHtml += `<div>${i}</div>`;
   }
+  lineGutter.innerHTML = numbersHtml;
+}
 
-  // Command results
-  const matchingCmds = COMMANDS.filter(c => !q || c.label.toLowerCase().includes(q));
-  if (matchingCmds.length > 0) {
-    const label = document.createElement('div');
-    label.className = 'command-palette__group-label';
-    label.textContent = 'Commands';
-    commandPaletteResults.appendChild(label);
-    matchingCmds.slice(0, 10).forEach(cmd => {
-      const btn = makePaletteItem(cmd.icon, cmd.label, '', cmd.shortcut, () => {
-        closeCommandPalette();
-        cmd.action();
-      });
-      commandPaletteResults.appendChild(btn);
-      paletteItems.push(btn);
-    });
-  }
+function updateCursorPosAndMetrics() {
+  const val = editor.value;
+  const selStart = editor.selectionStart;
 
-  if (paletteItems.length > 0) {
-    paletteActiveIdx = 0;
-    paletteItems[0].classList.add('command-palette__item--active');
+  // Cursor position
+  const lines = val.substr(0, selStart).split('\n');
+  const lineNum = lines.length;
+  const colNum = lines[lines.length - 1].length + 1;
+  statusPos.textContent = `Ln ${lineNum}, Col ${colNum}`;
+
+  // Active line highlight offset
+  const lineHeight = 22.4; // 14px * 1.6
+  editorActiveLine.style.top = (12 + (lineNum - 1) * lineHeight) + 'px';
+
+  // Metrics
+  const chars = val.length;
+  const words = val.trim() ? val.trim().split(/\s+/).filter(Boolean).length : 0;
+  const lineCount = val ? val.split('\n').length : 0;
+
+  statusWords.textContent = `${words}w`;
+  statusChars.textContent = `${chars}c`;
+
+  if (metricWords) metricWords.textContent = words;
+  if (metricChars) metricChars.textContent = chars;
+  if (metricLines) metricLines.textContent = lineCount;
+
+  // Reading time
+  const readingSec = Math.ceil((words / 200) * 60);
+  const readingText = readingSec >= 60 ? `${Math.floor(readingSec / 60)} min read` : `${readingSec} sec read`;
+  statusReading.textContent = `⏱ ${readingText}`;
+  if (metricReading) metricReading.textContent = readingText;
+}
+
+function syncEditorScroll() {
+  lineGutter.scrollTop = editor.scrollTop;
+  if (isPreviewOpen) {
+    const percentage = editor.scrollTop / (editor.scrollHeight - editor.clientHeight || 1);
+    previewPane.scrollTop = percentage * (previewPane.scrollHeight - previewPane.clientHeight);
   }
 }
 
-function makePaletteItem(icon, label, preview, shortcut, action) {
-  const btn = document.createElement('button');
-  btn.className = 'command-palette__item';
-  btn.setAttribute('role', 'option');
-  btn.innerHTML = `
-    <span class="command-palette__item-icon">${icon}</span>
-    <span class="command-palette__item-label">${escHtml(label)}</span>
-    ${preview ? `<span class="command-palette__item-preview">${escHtml(preview)}</span>` : ''}
-    ${shortcut ? `<span class="command-palette__item-kbd">${escHtml(shortcut)}</span>` : ''}
-  `;
-  btn.addEventListener('click', action);
-  return btn;
-}
-
-commandPaletteInput.addEventListener('input', () => renderPaletteResults(commandPaletteInput.value));
-commandPaletteInput.addEventListener('keydown', e => {
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    if (paletteActiveIdx >= 0) paletteItems[paletteActiveIdx].classList.remove('command-palette__item--active');
-    paletteActiveIdx = Math.min(paletteActiveIdx + 1, paletteItems.length - 1);
-    paletteItems[paletteActiveIdx]?.classList.add('command-palette__item--active');
-    paletteItems[paletteActiveIdx]?.scrollIntoView({ block: 'nearest' });
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    if (paletteActiveIdx >= 0) paletteItems[paletteActiveIdx].classList.remove('command-palette__item--active');
-    paletteActiveIdx = Math.max(paletteActiveIdx - 1, 0);
-    paletteItems[paletteActiveIdx]?.classList.add('command-palette__item--active');
-    paletteItems[paletteActiveIdx]?.scrollIntoView({ block: 'nearest' });
-  } else if (e.key === 'Enter') {
-    e.preventDefault();
-    paletteItems[paletteActiveIdx]?.click();
-  } else if (e.key === 'Escape') {
-    closeCommandPalette();
-  }
-  e.stopPropagation();
-});
-commandPalette.querySelector('.command-palette__backdrop').addEventListener('click', closeCommandPalette);
-
-// ── Find & Replace ────────────────────────────────────────────────────────────
-
-function openSearch(withReplace = false) {
-  searchBar.hidden = false;
-  searchFindInput.focus();
-  searchFindInput.select();
-  if (withReplace) {
-    searchReplaceRow.hidden = false;
-    btnSearchReplaceToggle.setAttribute('aria-expanded', 'true');
-  }
-  runSearch();
-}
-
-function openSearchReplace() { openSearch(true); }
-
-function closeSearch() {
-  searchBar.hidden = true;
-  clearSearch();
-  editor.focus();
-}
-
-function clearSearch() {
-  searchState.query = '';
-  searchState.matches = [];
-  searchState.currentMatch = -1;
-  updateSearchCount();
-  updateHighlight();
-}
-
-function runSearch() {
-  const query = searchFindInput.value;
-  searchState.query = query;
-
-  if (!query) {
-    searchState.matches = [];
-    searchState.currentMatch = -1;
-    updateSearchCount();
-    updateHighlight();
-    return;
-  }
-
-  const text = editor.value;
-  const matches = [];
-  try {
-    const flags = searchState.caseSensitive ? 'g' : 'gi';
-    let pattern;
-    if (searchState.useRegex) {
-      pattern = new RegExp(query, flags);
-    } else {
-      pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
-    }
-    let m;
-    while ((m = pattern.exec(text)) !== null) {
-      matches.push({ start: m.index, end: m.index + m[0].length });
-      if (matches.length > 500) break;
-    }
-  } catch (_) {}
-
-  searchState.matches = matches;
-  if (searchState.currentMatch >= matches.length) searchState.currentMatch = -1;
-  if (matches.length > 0 && searchState.currentMatch < 0) searchState.currentMatch = 0;
-  updateSearchCount();
-  jumpToCurrentMatch();
-}
-
-function nextMatch() {
-  if (!searchState.matches.length) return;
-  searchState.currentMatch = (searchState.currentMatch + 1) % searchState.matches.length;
-  updateSearchCount();
-  jumpToCurrentMatch();
-}
-
-function prevMatch() {
-  if (!searchState.matches.length) return;
-  searchState.currentMatch = (searchState.currentMatch - 1 + searchState.matches.length) % searchState.matches.length;
-  updateSearchCount();
-  jumpToCurrentMatch();
-}
-
-function jumpToCurrentMatch() {
-  const match = searchState.matches[searchState.currentMatch];
-  if (!match) return;
-  editor.setSelectionRange(match.start, match.end);
-  editor.focus();
-}
-
-function updateSearchCount() {
-  const total = searchState.matches.length;
-  const cur = searchState.currentMatch + 1;
-  searchCount.textContent = total > 0 ? `${cur} of ${total}` : (searchState.query ? 'No results' : '0 of 0');
-}
-
-function replaceOne() {
-  const match = searchState.matches[searchState.currentMatch];
-  if (!match) return;
-  const repl = searchReplaceInput.value;
-  editor.focus();
-  editor.setSelectionRange(match.start, match.end);
-  document.execCommand('insertText', false, repl);
-  runSearch();
-  scheduleSave();
-}
-
-function replaceAll() {
-  const text = editor.value;
-  const repl = searchReplaceInput.value;
-  let result;
-  try {
-    const flags = searchState.caseSensitive ? 'g' : 'gi';
-    let pattern;
-    if (searchState.useRegex) {
-      pattern = new RegExp(searchState.query, flags);
-    } else {
-      pattern = new RegExp(searchState.query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
-    }
-    result = text.replace(pattern, repl);
-  } catch (_) { return; }
-  editor.value = result;
-  updateHighlight();
-  updateLineGutter();
-  scheduleSave();
-  runSearch();
-  showToast(`Replaced ${searchState.matches.length} occurrence(s)`, 'success');
-}
-
-searchFindInput.addEventListener('input', runSearch);
-searchFindInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.shiftKey ? prevMatch() : nextMatch(); e.preventDefault(); }
-  if (e.key === 'Escape') closeSearch();
-  e.stopPropagation();
-});
-btnSearchNext.addEventListener('click', nextMatch);
-btnSearchPrev.addEventListener('click', prevMatch);
-btnSearchClose.addEventListener('click', closeSearch);
-btnSearchCase.addEventListener('click', () => {
-  searchState.caseSensitive = !searchState.caseSensitive;
-  btnSearchCase.classList.toggle('search-bar__btn--active', searchState.caseSensitive);
-  btnSearchCase.setAttribute('aria-pressed', String(searchState.caseSensitive));
-  runSearch();
-});
-btnSearchRegex.addEventListener('click', () => {
-  searchState.useRegex = !searchState.useRegex;
-  btnSearchRegex.classList.toggle('search-bar__btn--active', searchState.useRegex);
-  btnSearchRegex.setAttribute('aria-pressed', String(searchState.useRegex));
-  runSearch();
-});
-btnSearchReplaceToggle.addEventListener('click', () => {
-  const expanded = searchReplaceRow.hidden;
-  searchReplaceRow.hidden = !expanded;
-  btnSearchReplaceToggle.setAttribute('aria-expanded', String(expanded));
-});
-btnReplaceOne.addEventListener('click', replaceOne);
-btnReplaceAll.addEventListener('click', replaceAll);
-
-// ── Preview Panel ─────────────────────────────────────────────────────────────
+// ── Live Split Markdown Preview ───────────────────────────────────────────────
 
 function togglePreview() {
   isPreviewOpen = !isPreviewOpen;
   previewPane.hidden = !isPreviewOpen;
-  btnPreview.classList.toggle('share-btn--active', isPreviewOpen);
-  btnPreview.setAttribute('aria-pressed', String(isPreviewOpen));
-  if (isPreviewOpen) renderMarkdownPreview(editor.value);
+  btnPreview.setAttribute('aria-pressed', isPreviewOpen ? 'true' : 'false');
+  if (isPreviewOpen) renderMarkdownPreview();
 }
 
-btnPreview.addEventListener('click', togglePreview);
+function renderMarkdownPreview() {
+  const text = editor.value;
+  let html = text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // Headers
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+    // Bold & Italic
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    // Code blocks
+    .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+    // Inline code
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    // Task lists
+    .replace(/^- \[ \] (.*$)/gim, '<p>⏹ $1</p>')
+    .replace(/^- \[x\] (.*$)/gim, '<p>✅ $1</p>')
+    // Blockquotes
+    .replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>')
+    // Paragraphs
+    .replace(/\n\n/g, '</p><p>');
 
-// ── Distraction-Free Mode ─────────────────────────────────────────────────────
-
-function toggleDistractionFree() {
-  isDistractionFree = !isDistractionFree;
-  document.body.classList.toggle('distraction-free', isDistractionFree);
-  if (!isDistractionFree) editor.focus();
+  previewPane.innerHTML = `<p>${html}</p>`;
 }
 
-// ── Theme Management ──────────────────────────────────────────────────────────
+// ── Zen / Distraction-Free Mode ───────────────────────────────────────────────
 
-function applyTheme(theme) {
-  settings.theme = theme;
-  let resolved = theme;
-  if (theme === 'system') {
-    resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+function toggleZenMode() {
+  isZenMode = !isZenMode;
+  document.body.classList.toggle('zen-mode', isZenMode);
+  btnZen.setAttribute('aria-pressed', isZenMode ? 'true' : 'false');
+  if (isZenMode && isSidebarOpen) toggleSidebar();
+}
+
+// ── Developer Power Tools ─────────────────────────────────────────────────────
+
+async function runJsonFormat(minify) {
+  const input = editor.value;
+  if (!input.trim()) return;
+
+  if (window.go?.main?.App) {
+    const res = await window.go.main.App.FormatJSON(input, minify);
+    if (res.error) {
+      showToast('⚠️ ' + res.error);
+    } else {
+      editor.value = res.result;
+      handleEditorInput();
+      showToast(minify ? 'Minified JSON' : 'Formatted JSON');
+    }
   }
-  document.documentElement.setAttribute('data-theme', resolved);
-  localStorage.setItem('octonote-theme', theme);
+}
 
-  // Update settings panel pills
-  themePills.forEach(p => {
-    const isActive = p.dataset.themeVal === theme;
-    p.classList.toggle('theme-pill--active', isActive);
-    p.setAttribute('aria-pressed', String(isActive));
+async function runCaseTransform(mode) {
+  const input = editor.value;
+  if (!input) return;
+
+  if (window.go?.main?.App) {
+    const transformed = await window.go.main.App.TransformCase(input, mode);
+    editor.value = transformed;
+    handleEditorInput();
+    showToast(`Transformed to ${mode}`);
+  }
+}
+
+async function insertTemplate(name) {
+  if (window.go?.main?.App) {
+    const tmpl = await window.go.main.App.GetTemplate(name);
+    editor.value = (editor.value ? editor.value + '\n\n' : '') + tmpl;
+    handleEditorInput();
+    showToast(`Inserted template`);
+  }
+}
+
+// ── Command Palette ───────────────────────────────────────────────────────────
+
+function getBuiltinCommands() {
+  const cmds = [
+    { id: 'new-tab', title: 'New Scratchpad Tab', shortcut: 'Ctrl+N', action: createNewTab },
+    { id: 'close-tab', title: 'Close Active Tab', shortcut: 'Ctrl+W', action: () => closeTab(state.active_index) },
+    { id: 'toggle-sidebar', title: 'Toggle Notes Sidebar', shortcut: 'Ctrl+B', action: toggleSidebar },
+    { id: 'toggle-preview', title: 'Toggle Split Markdown Preview', shortcut: 'Ctrl+M', action: togglePreview },
+    { id: 'toggle-zen', title: 'Toggle Zen Mode', shortcut: 'F11', action: toggleZenMode },
+    { id: 'format-json', title: 'Format & Indent JSON', shortcut: 'Ctrl+Shift+J', action: () => runJsonFormat(false) },
+    { id: 'minify-json', title: 'Minify JSON', shortcut: '', action: () => runJsonFormat(true) },
+  ];
+
+  // Add tabs to search
+  if (state.tabs) {
+    state.tabs.forEach((tab, idx) => {
+      cmds.push({
+        id: `switch-tab-${idx}`,
+        title: `Switch to Tab ${idx + 1}: ${tab.title || 'Untitled'}`,
+        shortcut: `⌘${idx + 1}`,
+        action: () => switchActiveTab(idx)
+      });
+    });
+  }
+
+  return cmds;
+}
+
+function showCommandPalette() {
+  commandPalette.hidden = false;
+  commandPaletteInput.value = '';
+  commandPaletteSelectedIndex = 0;
+  renderCommandPaletteResults();
+  commandPaletteInput.focus();
+}
+
+function hideCommandPalette() {
+  commandPalette.hidden = true;
+  editor.focus();
+}
+
+function renderCommandPaletteResults() {
+  const query = commandPaletteInput.value.toLowerCase().trim();
+  const allCmds = getBuiltinCommands();
+  filteredCommands = allCmds.filter(c => c.title.toLowerCase().includes(query));
+
+  commandPaletteResults.innerHTML = '';
+  if (filteredCommands.length === 0) {
+    commandPaletteResults.innerHTML = '<div class="command-item" style="color:var(--col-text-muted)">No matching commands or tabs</div>';
+    return;
+  }
+
+  filteredCommands.forEach((cmd, idx) => {
+    const item = document.createElement('div');
+    item.className = `command-item ${idx === commandPaletteSelectedIndex ? 'command-item--selected' : ''}`;
+    item.innerHTML = `
+      <span>${escapeHtml(cmd.title)}</span>
+      ${cmd.shortcut ? `<kbd class="kbd-sm">${cmd.shortcut}</kbd>` : ''}
+    `;
+    item.addEventListener('click', () => {
+      cmd.action();
+      hideCommandPalette();
+    });
+    commandPaletteResults.appendChild(item);
   });
 }
 
-function loadSettings() {
-  const savedTheme = localStorage.getItem('octonote-theme') || 'dark';
-  applyTheme(savedTheme);
-
-  const savedFont = localStorage.getItem('octonote-font') || 'jetbrains';
-  settings.font = savedFont;
-  if (settingFont) settingFont.value = savedFont;
-  applyFont(savedFont);
-
-  const savedSize = parseInt(localStorage.getItem('octonote-fontsize') || '15', 10);
-  settings.fontSize = savedSize;
-  if (settingFontsize) settingFontsize.value = String(savedSize);
-  applyFontSize(savedSize);
-
-  const savedWrap = localStorage.getItem('octonote-wordwrap') !== 'false';
-  settings.wordWrap = savedWrap;
-  if (settingWordwrap) settingWordwrap.checked = savedWrap;
-  applyWordWrap(savedWrap);
-
-  const savedAutoTitle = localStorage.getItem('octonote-autotitle') !== 'false';
-  settings.autoTitle = savedAutoTitle;
-  if (settingAutotitle) settingAutotitle.checked = savedAutoTitle;
-
-  const savedLinenums = localStorage.getItem('octonote-linenums') !== 'false';
-  settings.lineNumbers = savedLinenums;
-  if (settingLinenums) settingLinenums.checked = savedLinenums;
-
-  const savedActiveline = localStorage.getItem('octonote-activeline') !== 'false';
-  settings.activeLine = savedActiveline;
-  if (settingActiveline) settingActiveline.checked = savedActiveline;
-}
-
-function applyFont(font) {
-  const fontMap = {
-    jetbrains: "'JetBrains Mono', monospace",
-    fira:      "'Fira Code', monospace",
-    cascadia:  "'Cascadia Code', monospace",
-    system:    "monospace",
-  };
-  const val = fontMap[font] || fontMap.jetbrains;
-  document.documentElement.style.setProperty('--font-editor', val);
-}
-
-function applyFontSize(px) {
-  document.documentElement.style.setProperty('--font-size-editor', px + 'px');
-}
-
-function applyWordWrap(wrap) {
-  editor.style.whiteSpace = wrap ? 'pre-wrap' : 'pre';
-  editor.style.overflowX  = wrap ? 'hidden' : 'auto';
-  editorHighlight.style.whiteSpace = wrap ? 'pre-wrap' : 'pre';
-}
-
-// Settings panel events
-themePills.forEach(pill => {
-  pill.addEventListener('click', () => applyTheme(pill.dataset.themeVal));
-});
-
-settingFont?.addEventListener('change', () => {
-  settings.font = settingFont.value;
-  localStorage.setItem('octonote-font', settingFont.value);
-  applyFont(settingFont.value);
-});
-
-settingFontsize?.addEventListener('change', () => {
-  const sz = parseInt(settingFontsize.value, 10);
-  settings.fontSize = sz;
-  localStorage.setItem('octonote-fontsize', String(sz));
-  applyFontSize(sz);
-});
-
-settingWordwrap?.addEventListener('change', () => {
-  settings.wordWrap = settingWordwrap.checked;
-  localStorage.setItem('octonote-wordwrap', String(settingWordwrap.checked));
-  applyWordWrap(settingWordwrap.checked);
-});
-settingAutotitle?.addEventListener('change', () => {
-  settings.autoTitle = settingAutotitle.checked;
-  localStorage.setItem('octonote-autotitle', String(settingAutotitle.checked));
-});
-settingLinenums?.addEventListener('change', () => {
-  settings.lineNumbers = settingLinenums.checked;
-  localStorage.setItem('octonote-linenums', String(settingLinenums.checked));
-  updateLineGutter();
-});
-settingActiveline?.addEventListener('change', () => {
-  settings.activeLine = settingActiveline.checked;
-  localStorage.setItem('octonote-activeline', String(settingActiveline.checked));
-  updateActiveLine();
-});
-
-btnSettingsStorage?.addEventListener('click', async () => {
-  try {
-    const dir = await window.go.main.App.GetStorageDir();
-    showToast('Storage: ' + dir, 'info', 5000);
-  } catch (_) {}
-});
-
-settingsPanel.querySelector('.settings-panel__backdrop')?.addEventListener('click', () => { settingsPanel.hidden = true; });
-settingsClose?.addEventListener('click', () => { settingsPanel.hidden = true; });
-
-// ── Shortcuts Overlay ─────────────────────────────────────────────────────────
-
-shortcutsClose?.addEventListener('click', () => { shortcutsOverlay.hidden = true; });
-shortcutsOverlay.querySelector('.shortcuts-overlay__backdrop')?.addEventListener('click', () => { shortcutsOverlay.hidden = true; });
-
-// ── Export Panel ──────────────────────────────────────────────────────────────
-
-exportClose?.addEventListener('click', () => { exportPanel.hidden = true; });
-exportPanel.querySelector('.export-panel__backdrop')?.addEventListener('click', () => { exportPanel.hidden = true; });
-
-document.getElementById('export-md')?.addEventListener('click', () => {
-  exportContent('md');
-  exportPanel.hidden = true;
-});
-document.getElementById('export-txt')?.addEventListener('click', () => {
-  exportContent('txt');
-  exportPanel.hidden = true;
-});
-document.getElementById('export-html')?.addEventListener('click', () => {
-  exportContent('html');
-  exportPanel.hidden = true;
-});
-document.getElementById('export-clip')?.addEventListener('click', async () => {
-  try {
-    await navigator.clipboard.writeText(editor.value);
-    showToast('Copied to clipboard ✓', 'success');
-  } catch (_) { showToast('Clipboard access denied', 'error'); }
-  exportPanel.hidden = true;
-});
-document.getElementById('export-all')?.addEventListener('click', async () => {
-  try {
-    if (window.go?.main?.App?.ExportAllTabs) {
-      const dir = await window.go.main.App.GetStorageDir();
-      const err = await window.go.main.App.ExportAllTabs(dir);
-      if (err) showToast(err, 'error');
-      else showToast('All tabs exported to: ' + dir, 'success', 5000);
-    } else {
-      showToast('Export all tabs requires a newer build', 'warn');
+function handleCommandPaletteKeydown(e) {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    commandPaletteSelectedIndex = (commandPaletteSelectedIndex + 1) % (filteredCommands.length || 1);
+    renderCommandPaletteResults();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    commandPaletteSelectedIndex = (commandPaletteSelectedIndex - 1 + filteredCommands.length) % (filteredCommands.length || 1);
+    renderCommandPaletteResults();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (filteredCommands[commandPaletteSelectedIndex]) {
+      filteredCommands[commandPaletteSelectedIndex].action();
+      hideCommandPalette();
     }
-  } catch (e) { showToast(String(e), 'error'); }
-  exportPanel.hidden = true;
-});
+  } else if (e.key === 'Escape') {
+    hideCommandPalette();
+  }
+}
 
-function exportContent(format) {
-  const tab = state.tabs[state.active_index];
-  if (!tab) return;
-  const filename = (tab.title || 'note') + '.' + (format === 'html' ? 'html' : format);
-  let content = editor.value;
+// ── Global Keyboard Shortcuts ─────────────────────────────────────────────────
 
-  if (format === 'html') {
-    content = `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"/><title>${escHtml(tab.title)}</title>
-<style>body{max-width:720px;margin:40px auto;font-family:system-ui,sans-serif;line-height:1.7;color:#222;}</style>
-</head><body><article>
-${renderToHTMLString(content)}
-</article></body></html>`;
+function handleGlobalKeydown(e) {
+  const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+
+  if (isCmdOrCtrl && e.key.toLowerCase() === 'p') {
+    e.preventDefault();
+    showCommandPalette();
+  } else if (isCmdOrCtrl && e.key.toLowerCase() === 'b') {
+    e.preventDefault();
+    toggleSidebar();
+  } else if (isCmdOrCtrl && e.key.toLowerCase() === 'm') {
+    e.preventDefault();
+    togglePreview();
+  } else if (isCmdOrCtrl && e.key.toLowerCase() === 'n') {
+    e.preventDefault();
+    createNewTab();
+  } else if (isCmdOrCtrl && e.key.toLowerCase() === 'f') {
+    e.preventDefault();
+    toggleSearchBar();
+  } else if (isCmdOrCtrl && e.key.toLowerCase() === 'w') {
+    e.preventDefault();
+    if (state.tabs && state.tabs.length > 1) {
+      closeTab(state.active_index);
+    }
+  } else if (e.ctrlKey && e.key === 'Tab') {
+    e.preventDefault();
+    if (!state.tabs || state.tabs.length === 0) return;
+    const nextIdx = e.shiftKey
+      ? (state.active_index - 1 + state.tabs.length) % state.tabs.length
+      : (state.active_index + 1) % state.tabs.length;
+    switchActiveTab(nextIdx);
+  } else if (isCmdOrCtrl && e.key >= '1' && e.key <= '9') {
+    e.preventDefault();
+    const targetIdx = parseInt(e.key, 10) - 1;
+    if (state.tabs && targetIdx < state.tabs.length) {
+      switchActiveTab(targetIdx);
+    }
+// Removed lock shortcut
+  }
+}
+// ── Find and Replace ────────────────────────────────────────────────────────────
+
+function toggleSearchBar() {
+  if (searchBar.hidden) {
+    searchBar.hidden = false;
+    searchFindInput.focus();
+    const selText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+    if (selText) {
+      searchFindInput.value = selText;
+    }
+    updateSearchMatches();
+  } else {
+    searchBar.hidden = true;
+    editor.focus();
+  }
+}
+
+function updateSearchMatches() {
+  const query = searchFindInput.value;
+  searchMatches = [];
+  currentSearchMatchIndex = -1;
+  
+  if (!query) {
+    searchCount.textContent = '0 of 0';
+    return;
   }
 
-  const blob = new Blob([content], { type: 'text/plain' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(a.href);
-  showToast(`Exported as ${filename}`, 'success');
+  const text = editor.value;
+  let lowerText = text.toLowerCase();
+  let lowerQuery = query.toLowerCase();
+  let pos = 0;
+  
+  while ((pos = lowerText.indexOf(lowerQuery, pos)) !== -1) {
+    searchMatches.push({ start: pos, end: pos + query.length });
+    pos += query.length;
+  }
+
+  if (searchMatches.length > 0) {
+    // Try to find the closest match after the cursor
+    const cursorPos = editor.selectionStart;
+    let found = searchMatches.findIndex(m => m.start >= cursorPos);
+    if (found === -1) found = 0;
+    
+    currentSearchMatchIndex = found;
+    highlightCurrentSearchMatch();
+  } else {
+    searchCount.textContent = '0 of 0';
+  }
 }
 
-function renderToHTMLString(md) {
-  // Quick export renderer
-  const div = document.createElement('div');
-  div.className = 'preview-pane';
-  renderMarkdownPreview(md);
-  return previewPane.innerHTML;
+function navigateSearch(dir) {
+  if (searchMatches.length === 0) return;
+  currentSearchMatchIndex += dir;
+  if (currentSearchMatchIndex >= searchMatches.length) {
+    currentSearchMatchIndex = 0;
+  } else if (currentSearchMatchIndex < 0) {
+    currentSearchMatchIndex = searchMatches.length - 1;
+  }
+  highlightCurrentSearchMatch();
 }
+
+function highlightCurrentSearchMatch() {
+  if (currentSearchMatchIndex >= 0 && currentSearchMatchIndex < searchMatches.length) {
+    const match = searchMatches[currentSearchMatchIndex];
+    editor.focus();
+    editor.setSelectionRange(match.start, match.end);
+    searchCount.textContent = `${currentSearchMatchIndex + 1} of ${searchMatches.length}`;
+  }
+}
+
+function replaceCurrentMatch() {
+  if (currentSearchMatchIndex >= 0 && currentSearchMatchIndex < searchMatches.length) {
+    const match = searchMatches[currentSearchMatchIndex];
+    const repText = searchReplaceInput.value;
+    editor.setRangeText(repText, match.start, match.end, 'end');
+    
+    // Notify editor input event
+    editor.dispatchEvent(new Event('input'));
+    
+    // Matches indices have changed, so we must recompute
+    updateSearchMatches();
+  }
+}
+
+function replaceAllMatches() {
+  const query = searchFindInput.value;
+  if (!query) return;
+  const repText = searchReplaceInput.value;
+  
+  // Custom case-insensitive replaceAll using regex
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(escapedQuery, 'gi');
+  
+  const text = editor.value;
+  editor.value = text.replace(regex, repText);
+  
+  editor.dispatchEvent(new Event('input'));
+  updateSearchMatches();
+}
+
 
 // ── Toast Notifications ───────────────────────────────────────────────────────
 
-function showToast(msg, type = 'info', duration = 3000) {
+function showToast(msg) {
   const toast = document.createElement('div');
-  toast.className = `toast toast--${type}`;
-  toast.setAttribute('role', 'status');
-  const icons = { success: '✅', warn: '⚠️', error: '❌', info: 'ℹ️' };
-  toast.innerHTML = `<span class="toast__icon">${icons[type] || 'ℹ️'}</span><span class="toast__msg">${escHtml(msg)}</span>`;
+  toast.className = 'toast';
+  toast.textContent = msg;
   toastContainer.appendChild(toast);
-
-  setTimeout(() => {
-    toast.classList.add('toast--exit');
-    toast.addEventListener('animationend', () => toast.remove(), { once: true });
-    setTimeout(() => toast.remove(), 300);
-  }, duration);
+  setTimeout(() => toast.remove(), 2500);
 }
 
-// ── Status Updates ────────────────────────────────────────────────────────────
-
-function getCursorLine() {
-  const text = editor.value.substring(0, editor.selectionStart);
-  return text.split('\n').length - 1;
+// Helper: Escape HTML
+function escapeHtml(str) {
+  return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
-function updateCursorStatus() {
-  const fullText = editor.value;
-  const text = fullText.substring(0, editor.selectionStart);
-  const lines = text.split('\n');
-  const line = lines.length;
-  const col  = lines[lines.length - 1].length + 1;
-  statusPos.textContent = `Ln ${line}, Col ${col}`;
-
-  const words = fullText.trim() ? fullText.trim().split(/\s+/).length : 0;
-  const chars = fullText.length;
-  statusWords.textContent = `${words}w`;
-  statusChars.textContent = `${chars}c`;
-
-  updateLineGutter();
-  updateActiveLine();
-}
-
-function getSaveTimestamp() {
-  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
-
-function setSaveStatus(status) {
-  const tab = state.tabs[state.active_index];
-  if (!tab) return;
-  statusSave.className = 'status-indicator';
-  let iconHTML = '', text = '';
-
-  if (status === 'saving') {
-    statusSave.classList.add('status-indicator--saving');
-    iconHTML = svgDot('var(--col-warn)', true);
-    text = 'saving…';
-  } else if (status === 'error') {
-    statusSave.classList.add('status-indicator--error');
-    iconHTML = svgDot('var(--col-danger)');
-    text = 'save error';
-  } else {
-    const isUnsaved = tab.file_is_dirty || (!tab.file_path && (tab.body || '').trim().length > 0);
-    if (tab.file_path) {
-      const name = tab.file_path.split('/').pop();
-      if (tab.file_is_dirty) {
-        statusSave.classList.add('status-indicator--dirty');
-        iconHTML = svgDot('var(--col-warn)');
-        text = `unsaved — ${name}`;
-      } else {
-        statusSave.classList.add('status-indicator--saved');
-        iconHTML = svgDot('var(--col-success)');
-        text = `saved ${name}`;
-      }
-    } else {
-      if (isUnsaved) {
-        statusSave.classList.add('status-indicator--dirty');
-        iconHTML = svgDot('var(--col-warn)');
-        text = 'scratchpad';
-      } else {
-        statusSave.classList.add('status-indicator--empty');
-        iconHTML = svgDot('var(--col-muted)');
-        text = 'empty';
-      }
-    }
-  }
-
-  statusSave.innerHTML = `${iconHTML}<span id="status-save-text"></span>`;
-  statusSave.querySelector('#status-save-text').textContent = text;
-}
-
-function svgDot(fill, animated = false) {
-  const anim = animated ? ' style="animation:blink-saving 0.9s ease-in-out infinite"' : '';
-  return `<svg class="status-icon" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"${anim}><circle cx="4" cy="4" r="4" fill="${fill}"/></svg>`;
-}
-
-function updateFileStatus() { setSaveStatus('saved'); }
-
-// ── Keyboard Shortcuts ────────────────────────────────────────────────────────
-
-function onKeyDown(e) {
-  // Allow rename input to handle its own keys
-  if (document.activeElement?.classList.contains('tab-rename-input')) return;
-
-  // Allow modals to handle their own keys (except Escape)
-  const anyModalOpen = !commandPalette.hidden || !openModal.hidden || !saveasModal.hidden || !settingsPanel.hidden || !shortcutsOverlay.hidden || !exportPanel.hidden;
-
-  const ctrl = e.ctrlKey || e.metaKey;
-
-  // Escape — close any open panel
-  if (e.key === 'Escape') {
-    if (!commandPalette.hidden)   { closeCommandPalette(); return; }
-    if (!searchBar.hidden)         { closeSearch(); return; }
-    if (!historyPanel.hidden)      { historyPanel.hidden = true; return; }
-    if (!settingsPanel.hidden)     { settingsPanel.hidden = true; return; }
-    if (!shortcutsOverlay.hidden)  { shortcutsOverlay.hidden = true; return; }
-    if (!exportPanel.hidden)       { exportPanel.hidden = true; return; }
-    if (!openModal.hidden)         { closeOpenModal(); return; }
-    if (!saveasModal.hidden)       { closeSaveAsModal(); return; }
-    if (!shareModal.hidden)        { closeShareModal(); return; }
-    if (isDistractionFree)         { toggleDistractionFree(); return; }
-    return;
-  }
-
-  if (anyModalOpen) return;
-
-  // ? → shortcuts overlay (when editor not focused)
-  if (e.key === '?' && document.activeElement !== editor) {
-    shortcutsOverlay.hidden = false;
-    return;
-  }
-
-  if (ctrl && e.key === 'n') { e.preventDefault(); newTab(); return; }
-  if (ctrl && e.key === 'w') { e.preventDefault(); closeTab(state.active_index); return; }
-  if (ctrl && e.key === 'd') { e.preventDefault(); duplicateTab(state.active_index); return; }
-  if (ctrl && e.key === 'o') { e.preventDefault(); openOpenModal(); return; }
-  if (ctrl && e.key === 's' && !e.shiftKey) { e.preventDefault(); handleSave(); return; }
-  if (ctrl && e.key === 's' &&  e.shiftKey) { e.preventDefault(); openSaveAsModal(); return; }
-  if (ctrl && e.key === 'p') { e.preventDefault(); openCommandPalette(); return; }
-  if (ctrl && e.key === 'k') { e.preventDefault(); openCommandPalette(); return; }
-  if (ctrl && e.key === 'f') { e.preventDefault(); openSearch(); return; }
-  if (ctrl && e.key === 'h') { e.preventDefault(); openSearchReplace(); return; }
-  if (ctrl && e.key === 'm') { e.preventDefault(); togglePreview(); return; }
-  if (ctrl && e.key === ',') { e.preventDefault(); settingsPanel.hidden = false; return; }
-  if (ctrl && e.shiftKey && e.key === 'F') { e.preventDefault(); toggleDistractionFree(); return; }
-  if (ctrl && e.shiftKey && e.key === 'H') { e.preventDefault(); historyPanel.hidden = !historyPanel.hidden; renderHistoryPanel(); return; }
-
-  // Font size
-  if (ctrl && (e.key === '+' || e.key === '=')) {
-    e.preventDefault();
-    adjustTabFontSize(+1);
-    return;
-  }
-  if (ctrl && e.key === '-') {
-    e.preventDefault();
-    adjustTabFontSize(-1);
-    return;
-  }
-  if (ctrl && e.key === '0') {
-    e.preventDefault();
-    resetTabFontSize();
-    return;
-  }
-
-  // Tab navigation
-  if (ctrl && e.key === 'Tab' && !e.shiftKey) {
-    e.preventDefault();
-    switchTab((state.active_index + 1) % state.tabs.length);
-    return;
-  }
-  if (ctrl && e.key === 'Tab' && e.shiftKey) {
-    e.preventDefault();
-    switchTab((state.active_index - 1 + state.tabs.length) % state.tabs.length);
-    return;
-  }
-  if (ctrl && e.key >= '1' && e.key <= '9') {
-    const idx = parseInt(e.key, 10) - 1;
-    if (idx < state.tabs.length) { e.preventDefault(); switchTab(idx); }
-    return;
-  }
-}
-
-document.addEventListener('keydown', onKeyDown);
-
-// ── Per-tab Font Size ─────────────────────────────────────────────────────────
-
-function adjustTabFontSize(delta) {
-  const tab = state.tabs[state.active_index];
-  if (!tab) return;
-  const current = tabFontSizes.get(tab.id) || settings.fontSize;
-  const next = Math.max(10, Math.min(32, current + delta));
-  tabFontSizes.set(tab.id, next);
-  editor.style.fontSize = next + 'px';
-  editorHighlight.style.fontSize = next + 'px';
-  updateLineGutter();
-}
-
-function resetTabFontSize() {
-  const tab = state.tabs[state.active_index];
-  if (!tab) return;
-  tabFontSizes.delete(tab.id);
-  editor.style.fontSize = '';
-  editorHighlight.style.fontSize = '';
-  updateLineGutter();
-}
-
-// ── Editor Events ─────────────────────────────────────────────────────────────
-
-editor.addEventListener('input', () => {
-  scheduleSave();
-  updateCursorStatus();
-  updateHighlight();
-  scheduleAutoTitle();
-  if (searchState.query) runSearch();
-  if (isPreviewOpen) renderMarkdownPreview(editor.value);
-});
-
-editor.addEventListener('scroll', () => {
-  editorHighlight.scrollTop = editor.scrollTop;
-  editorHighlight.scrollLeft = editor.scrollLeft;
-  lineGutter.scrollTop = editor.scrollTop;
-  updateActiveLine();
-});
-
-editor.addEventListener('keyup',        updateCursorStatus);
-editor.addEventListener('click',        updateCursorStatus);
-editor.addEventListener('mouseup',      updateCursorStatus);
-document.addEventListener('selectionchange', () => {
-  if (document.activeElement === editor) updateCursorStatus();
-});
-
-// ── Window Controls ───────────────────────────────────────────────────────────
-
-btnMinimize?.addEventListener('click', () => window.runtime?.WindowMinimise?.());
-btnMaximize?.addEventListener('click', () => window.runtime?.WindowToggleMaximise?.());
-btnClose?.addEventListener('click',   () => window.runtime?.Quit?.());
-
-btnOntop?.addEventListener('click', () => {
-  isAlwaysOnTop = !isAlwaysOnTop;
-  window.runtime?.WindowSetAlwaysOnTop?.(isAlwaysOnTop);
-  btnOntop.classList.toggle('share-btn--active', isAlwaysOnTop);
-  btnOntop.setAttribute('aria-pressed', String(isAlwaysOnTop));
-});
-
-btnNewTab.addEventListener('click', newTab);
-
-// ── Onboarding / First Run ────────────────────────────────────────────────────
-
-async function maybeShowOnboarding(isFirstRun) {
-  if (!isFirstRun) return;
-
-  welcomeOverlay.hidden = false;
-  await new Promise(r => setTimeout(r, 2500));
-  welcomeOverlay.classList.add('fade-out');
-  await new Promise(r => setTimeout(r, 400));
-  welcomeOverlay.hidden = true;
-
-  // Pre-populate first tab with getting started guide
-  const guide = `# Welcome to octoNote 🐙
-
-> Your lightning-fast, crash-proof, multi-tab scratchpad.
-
-## Getting Started
-
-- **Multiple tabs** — Press \`Ctrl+N\` to create new tabs.
-- **Switch tabs** — Use \`Ctrl+Tab\` or \`Ctrl+1\`…\`9\` to jump.
-- **Rename tabs** — Double-click any tab to rename it.
-- **Auto-save** — Every keystroke is saved. You never need to press Ctrl+S.
-
-## Key Features
-
-- 🔍 \`Ctrl+F\` — Find in current tab
-- 👁 \`Ctrl+M\` — Toggle Markdown Preview (try it now!)
-- ⌨ \`Ctrl+P\` — Command Palette (search everything)
-- 📤 **Share** button — Send this tab to anyone, P2P encrypted
-
-## Markdown Support
-
-This is **bold**, this is *italic*, and \`this is code\`.
-
-\`\`\`
-function hello() {
-  return "octoNote is awesome!";
-}
-\`\`\`
-
-## File Support
-
-- \`Ctrl+O\` — Open a file from disk
-- \`Ctrl+S\` — Save to disk
-- \`Ctrl+Shift+S\` — Save As…
-
----
-
-*Delete this tab anytime. Everything auto-saves. Happy hacking!*
-`;
-
-  const idx = state.active_index;
-  editor.value = guide;
-  updateHighlight();
-  await window.go.main.App.SaveTab(idx, guide, 0);
-  await window.go.main.App.RenameTab(idx, 'Getting Started');
-  state = await window.go.main.App.GetState();
-  renderTabs();
-}
-
-// ── Init ──────────────────────────────────────────────────────────────────────
-
-async function init() {
-  loadSettings();
-  try {
-    const locked = await window.go.main.App.IsLocked();
-    if (locked) {
-      showUnlockModal();
-    } else {
-      state = await window.go.main.App.GetState();
-      const isFirstRun = state.tabs.length === 1 && !state.tabs[0].body;
-      renderTabs();
-      loadActiveTabIntoEditor();
-      await maybeShowOnboarding(isFirstRun);
-    }
-    
-    // Bind encryption settings
-    const isEnc = await window.go.main.App.IsEncryptionEnabled();
-    updateEncryptionBtn(isEnc);
-  } catch (err) {
-    console.error('octoNote: failed to load state', err);
-    renderFallback();
-  }
-
-  document.addEventListener('keydown', onKeyDown);
-  registerWailsEvents();
-}
-
-function renderFallback() {
-  state = {
-    tabs: [{ id: 'fallback', title: 'scratch', body: '', cursor_line: 0 }],
-    active_index: 0,
-  };
-  renderTabs();
-  editor.placeholder = 'Go bridge unavailable — running in offline mode.';
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-  let attempts = 0;
-  const poll = setInterval(() => {
-    if (window.go?.main?.App || attempts > 50) {
-      clearInterval(poll);
-      init();
-    }
-    attempts++;
-  }, 50);
-});
-
-// ── Wails Events ──────────────────────────────────────────────────────────────
-
-function registerWailsEvents() {
-  const waitRuntime = setInterval(() => {
-    if (!window.runtime?.EventsOn) return;
-    clearInterval(waitRuntime);
-
-    window.runtime.EventsOn('share:code', (code) => {
-      shareCodeValue.textContent = code;
-      shareHostStatus.textContent = '⏳ Waiting for peer to connect…';
-    });
-
-    window.runtime.EventsOn('share:done', () => {
-      shareHostActive.setAttribute('hidden', '');
-      shareHostDone.removeAttribute('hidden');
-      showToast('Tab shared successfully! ✅', 'success');
-      setTimeout(closeShareModal, 2000);
-    });
-
-    window.runtime.EventsOn('share:received', (payload) => {
-      state = payload.state;
-      renderTabs();
-      loadActiveTabIntoEditor();
-      shareGuestWaiting.setAttribute('hidden', '');
-      shareGuestDone.removeAttribute('hidden');
-      shareGuestDoneMsg.textContent = `✅ Tab "${payload.title}" added to your notebook!`;
-      showToast(`Received tab: "${payload.title}"`, 'success');
-      setTimeout(closeShareModal, 2000);
-    });
-
-    window.runtime.EventsOn('state:changed', (newSt) => {
-      state = newSt;
-      renderTabs();
-      const tab = state.tabs[state.active_index];
-      if (tab && editor.value !== (tab.body || '')) {
-        const start = editor.selectionStart;
-        const end   = editor.selectionEnd;
-        editor.value = tab.body || '';
-        updateHighlight();
-        try { editor.setSelectionRange(start, end); } catch (_) {}
-      }
-      updateFileStatus();
-      updateCursorStatus();
-    });
-
-    window.runtime.EventsOn('share:error', (msg) => {
-      resetShareModal();
-      showShareError(msg);
-      showToast('Share error: ' + msg, 'error');
-    });
-  }, 100);
-}
-
-// ── Share Modal ───────────────────────────────────────────────────────────────
-
-const shareModal      = document.getElementById('share-modal');
-const btnShare        = document.getElementById('btn-share');
-const shareModalClose = document.getElementById('share-modal-close');
-const shareTabHost    = document.getElementById('share-tab-host');
-const shareTabGuest   = document.getElementById('share-tab-guest');
-const sharePanelHost  = document.getElementById('share-panel-host');
-const sharePanelGuest = document.getElementById('share-panel-guest');
-const shareHostIdle      = document.getElementById('share-host-idle');
-const shareHostActive    = document.getElementById('share-host-active');
-const shareHostDone      = document.getElementById('share-host-done');
-const shareCodeValue     = document.getElementById('share-code-value');
-const btnCopyCode        = document.getElementById('btn-copy-code');
-const btnGenerateCode    = document.getElementById('btn-generate-code');
-const btnCancelShare     = document.getElementById('btn-cancel-share');
-const shareHostStatus    = document.getElementById('share-host-status');
-
-// ── Encryption UI ─────────────────────────────────────────────────────────────
-
-const unlockModal = document.getElementById('unlock-modal');
-const unlockPassInput = document.getElementById('unlock-password-input');
-const unlockConfirm = document.getElementById('unlock-modal-confirm');
-const unlockErr = document.getElementById('unlock-modal-err');
-
-function showUnlockModal() {
-  unlockModal.hidden = false;
-  unlockPassInput.value = '';
-  unlockErr.hidden = true;
-  unlockPassInput.focus();
-}
-
-async function handleUnlock() {
-  const pwd = unlockPassInput.value;
-  if (!pwd) return;
-  const err = await window.go.main.App.UnlockState(pwd);
-  if (err) {
-    unlockErr.textContent = err;
-    unlockErr.hidden = false;
-  } else {
-    unlockModal.hidden = true;
-    // state:changed will fire, but let's re-init safely
-    state = await window.go.main.App.GetState();
-    renderTabs();
-    loadActiveTabIntoEditor();
-  }
-}
-
-unlockConfirm.addEventListener('click', handleUnlock);
-unlockPassInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') handleUnlock();
-});
-
-const setpassModal = document.getElementById('setpass-modal');
-const setpassInput = document.getElementById('setpass-password-input');
-const setpassConfirm = document.getElementById('setpass-modal-confirm');
-const setpassClose = document.getElementById('setpass-modal-close');
-const setpassErr = document.getElementById('setpass-modal-err');
-const btnSettingsEnc = document.getElementById('btn-settings-encryption');
-
-function updateEncryptionBtn(isEnc) {
-  if (isEnc) {
-    btnSettingsEnc.textContent = 'Disable';
-    btnSettingsEnc.classList.add('context-menu__item--danger'); // reuse red style
-  } else {
-    btnSettingsEnc.textContent = 'Enable';
-    btnSettingsEnc.classList.remove('context-menu__item--danger');
-  }
-}
-
-btnSettingsEnc.addEventListener('click', async () => {
-  const isEnc = await window.go.main.App.IsEncryptionEnabled();
-  if (isEnc) {
-    await window.go.main.App.DisableEncryption();
-    updateEncryptionBtn(false);
-    showToast('Encryption disabled');
-  } else {
-    settingsPanel.hidden = true;
-    setpassModal.hidden = false;
-    setpassInput.value = '';
-    setpassErr.hidden = true;
-    setpassInput.focus();
-  }
-});
-
-setpassClose.addEventListener('click', () => setpassModal.hidden = true);
-setpassConfirm.addEventListener('click', async () => {
-  const pwd = setpassInput.value;
-  if (pwd.length < 4) {
-    setpassErr.textContent = 'Minimum 4 characters required.';
-    setpassErr.hidden = false;
-    return;
-  }
-  const err = await window.go.main.App.EnableEncryption(pwd);
-  if (err) {
-    setpassErr.textContent = err;
-    setpassErr.hidden = false;
-  } else {
-    setpassModal.hidden = true;
-    updateEncryptionBtn(true);
-    showToast('Encryption enabled. State file is now secured.');
-  }
-});
-setpassInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') setpassConfirm.click();
-  if (e.key === 'Escape') setpassModal.hidden = true;
-});
-const shareSenderName    = document.getElementById('share-sender-name');
-const sharePreviewTitle  = document.getElementById('share-preview-title');
-const shareSenderChip    = document.getElementById('share-sender-chip');
-const shareSenderChipName = document.getElementById('share-sender-chip-name');
-const shareGuestIdle    = document.getElementById('share-guest-idle');
-const shareGuestWaiting = document.getElementById('share-guest-waiting');
-const shareGuestDone    = document.getElementById('share-guest-done');
-const shareGuestDoneMsg = document.getElementById('share-guest-done-msg');
-const shareCodeInput    = document.getElementById('share-code-input');
-const btnReceiveCode    = document.getElementById('btn-receive-code');
-const btnCancelReceive  = document.getElementById('btn-cancel-receive');
-const shareError        = document.getElementById('share-error');
-
-function openShareModal() {
-  resetShareModal();
-  const activeTab = state.tabs?.[state.active_index];
-  if (activeTab) sharePreviewTitle.textContent = activeTab.title || 'scratch';
-  shareModal.removeAttribute('hidden');
-  btnShare.classList.add('share-btn--active');
-  shareSenderName.focus();
-}
-
-function closeShareModal() {
-  shareModal.setAttribute('hidden', '');
-  btnShare.classList.remove('share-btn--active');
-  window.go?.main?.App?.ShareCancel?.();
-  editor.focus();
-}
-
-function resetShareModal() {
-  shareError.setAttribute('hidden', '');
-  shareError.textContent = '';
-  shareHostIdle.removeAttribute('hidden');
-  shareHostActive.setAttribute('hidden', '');
-  shareHostDone.setAttribute('hidden', '');
-  shareCodeValue.textContent = '—';
-  shareSenderName.value = '';
-  shareSenderChip.setAttribute('hidden', '');
-  shareSenderChipName.textContent = '';
-  shareGuestIdle.removeAttribute('hidden');
-  shareGuestWaiting.setAttribute('hidden', '');
-  shareGuestDone.setAttribute('hidden', '');
-  shareCodeInput.value = '';
-}
-
-function switchShareTab(tab) {
-  const isHost = tab === 'host';
-  shareTabHost.classList.toggle('share-tab--active', isHost);
-  shareTabGuest.classList.toggle('share-tab--active', !isHost);
-  shareTabHost.setAttribute('aria-selected', isHost ? 'true' : 'false');
-  shareTabGuest.setAttribute('aria-selected', !isHost ? 'true' : 'false');
-  sharePanelHost.toggleAttribute('hidden', !isHost);
-  sharePanelGuest.toggleAttribute('hidden', isHost);
-}
-
-function showShareError(msg) {
-  shareError.textContent = '⚠ ' + msg;
-  shareError.removeAttribute('hidden');
-}
-
-btnShare.addEventListener('click', openShareModal);
-shareModalClose.addEventListener('click', closeShareModal);
-shareModal.querySelector('.share-modal__backdrop').addEventListener('click', closeShareModal);
-shareTabHost.addEventListener('click', () => switchShareTab('host'));
-shareTabGuest.addEventListener('click', () => switchShareTab('guest'));
-
-btnGenerateCode.addEventListener('click', async () => {
-  const label = shareSenderName.value.trim();
-  shareError.setAttribute('hidden', '');
-  shareHostIdle.setAttribute('hidden', '');
-  shareHostActive.removeAttribute('hidden');
-  shareCodeValue.textContent = 'opening wormhole…';
-  shareHostStatus.textContent = '⏳ Connecting to relay…';
-  if (label) { shareSenderChipName.textContent = label; shareSenderChip.removeAttribute('hidden'); }
-  else        { shareSenderChip.setAttribute('hidden', ''); }
-  await flushSave();
-  window.go.main.App.ShareSend(label);
-});
-
-btnCopyCode.addEventListener('click', async () => {
-  const code = shareCodeValue.textContent;
-  if (!code || code === '—' || code === 'opening wormhole…') return;
-  try {
-    await navigator.clipboard.writeText(code);
-    btnCopyCode.classList.add('copied');
-    showToast('Code copied to clipboard ✓', 'success');
-    setTimeout(() => btnCopyCode.classList.remove('copied'), 1500);
-  } catch (_) {}
-});
-
-btnCancelShare.addEventListener('click', () => { window.go.main.App.ShareCancel(); resetShareModal(); });
-
-btnReceiveCode.addEventListener('click', startReceive);
-shareCodeInput.addEventListener('keydown', e => { if (e.key === 'Enter') startReceive(); });
-
-function startReceive() {
-  const code = shareCodeInput.value.trim();
-  if (!code) { showShareError('Please enter a share code.'); return; }
-  shareError.setAttribute('hidden', '');
-  shareGuestIdle.setAttribute('hidden', '');
-  shareGuestWaiting.removeAttribute('hidden');
-  window.go.main.App.ShareReceive(code);
-}
-
-btnCancelReceive.addEventListener('click', () => {
-  window.go.main.App.ShareCancel();
-  resetShareModal();
-  switchShareTab('guest');
-});
-
-// ── File Open / Save ──────────────────────────────────────────────────────────
-
-async function handleSave() {
-  await flushSave();
-  const idx = state.active_index;
-  const tab = state.tabs[idx];
-  if (!tab) return;
-  if (tab.file_path) {
-    const errMsg = await window.go.main.App.SaveCurrentFile(idx, editor.value);
-    if (errMsg) { showToast(errMsg, 'error'); }
-    else {
-      tab.file_is_dirty = false;
-      setSaveStatus('saved');
-      renderTabs();
-      showToast('Saved ✓', 'success');
-    }
-  } else {
-    openSaveAsModal();
-  }
-}
-
-function openOpenModal() {
-  openModalErr.setAttribute('hidden', '');
-  openModalErr.textContent = '';
-  openPathInput.value = '';
-  openModal.removeAttribute('hidden');
-  openPathInput.focus();
-}
-
-function closeOpenModal() { openModal.setAttribute('hidden', ''); editor.focus(); }
-
-async function confirmOpen() {
-  const path = openPathInput.value.trim();
-  if (!path) return;
-  openModalErr.setAttribute('hidden', '');
-  const result = await window.go.main.App.OpenFile(path);
-  if (result.error) {
-    openModalErr.textContent = result.error;
-    openModalErr.removeAttribute('hidden');
-    return;
-  }
-  closeOpenModal();
-  const currentTab = state.tabs[state.active_index];
-  const currentEmpty = !currentTab?.body?.trim() && !currentTab?.file_path;
-  if (currentEmpty) {
-    const idx = state.active_index;
-    const filename = path.split('/').pop();
-    state.tabs[idx].title = filename;
-    state.tabs[idx].body = result.content;
-    state.tabs[idx].file_path = path;
-    state.tabs[idx].file_is_dirty = false;
-    editor.value = result.content;
-    await window.go.main.App.SaveFileAs(idx, path, result.content);
-    renderTabs(); updateFileStatus(); setSaveStatus('saved');
-    showToast('Opened: ' + filename, 'success');
-  } else {
-    state = await window.go.main.App.NewTab();
-    const newIdx = state.active_index;
-    const filename = path.split('/').pop();
-    await window.go.main.App.SaveFileAs(newIdx, path, result.content);
-    state = await window.go.main.App.GetState();
-    renderTabs(); loadActiveTabIntoEditor(); updateFileStatus(); setSaveStatus('saved');
-    showToast('Opened: ' + filename, 'success');
-  }
-}
-
-openModalConfirm.addEventListener('click', confirmOpen);
-openModalClose.addEventListener('click', closeOpenModal);
-openModal.querySelector('.open-modal__backdrop').addEventListener('click', closeOpenModal);
-openPathInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); confirmOpen(); }
-  if (e.key === 'Escape') { e.preventDefault(); closeOpenModal(); }
-  e.stopPropagation();
-});
-
-function openSaveAsModal(afterSaveClose = false) {
-  pendingCloseAfterSave = afterSaveClose;
-  saveasModalErr.setAttribute('hidden', '');
-  saveasModalErr.textContent = '';
-  const tab = state.tabs[state.active_index];
-  saveasPathInput.value = tab?.file_path || '';
-  saveasModal.removeAttribute('hidden');
-  saveasPathInput.focus();
-  saveasPathInput.select();
-}
-
-function closeSaveAsModal() {
-  saveasModal.setAttribute('hidden', '');
-  pendingCloseAfterSave = false;
-  editor.focus();
-}
-
-async function confirmSaveAs() {
-  const path = saveasPathInput.value.trim();
-  if (!path) return;
-  saveasModalErr.setAttribute('hidden', '');
-  await flushSave();
-  const idx = state.active_index;
-  const content = editor.value;
-  const errMsg = await window.go.main.App.SaveFileAs(idx, path, content);
-  if (errMsg) {
-    saveasModalErr.textContent = errMsg;
-    saveasModalErr.removeAttribute('hidden');
-    return;
-  }
-  state.tabs[idx].file_path = path;
-  state.tabs[idx].file_is_dirty = false;
-  state.tabs[idx].title = path.split('/').pop();
-  closeSaveAsModal();
-  renderTabs(); updateFileStatus(); setSaveStatus('saved');
-  showToast('Saved to: ' + path.split('/').pop(), 'success');
-  if (pendingCloseAfterSave) {
-    pendingCloseAfterSave = false;
-    state = await window.go.main.App.CloseTab(idx);
-    renderTabs(); loadActiveTabIntoEditor(); updateFileStatus();
-  }
-}
-
-saveasModalConfirm.addEventListener('click', confirmSaveAs);
-saveasModalClose.addEventListener('click', closeSaveAsModal);
-saveasModal.querySelector('.open-modal__backdrop').addEventListener('click', closeSaveAsModal);
-saveasPathInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); confirmSaveAs(); }
-  if (e.key === 'Escape') { e.preventDefault(); closeSaveAsModal(); }
-  e.stopPropagation();
-});
-
-// ── System theme change listener ──────────────────────────────────────────────
-
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-  if (settings.theme === 'system') applyTheme('system');
-});

@@ -9,7 +9,7 @@ import (
 
 var (
 	styleHeader1 = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(colAccentLt)).
+			Foreground(lipgloss.Color("#818cf8")).
 			Bold(true).
 			Underline(true)
 
@@ -18,7 +18,7 @@ var (
 			Bold(true)
 
 	styleBullet = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(colAccentLt)).
+			Foreground(lipgloss.Color("#818cf8")).
 			Bold(true)
 
 	styleCodeBlock = lipgloss.NewStyle().

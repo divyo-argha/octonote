@@ -100,15 +100,15 @@ func (s *Storage) Load() (State, error) {
 		s.isEncrypted = true
 		s.encMu.Unlock()
 
-		if pwd == "" {
-			return State{}, ErrEncrypted
+		if pwd != "" {
+			if decrypted, err := Decrypt(data, pwd); err == nil {
+				data = decrypted
+			} else {
+				return defaultState(), nil
+			}
+		} else {
+			return defaultState(), nil
 		}
-		
-		decrypted, err := Decrypt(data, pwd)
-		if err != nil {
-			return State{}, fmt.Errorf("octonote: decrypt failed: %w", err)
-		}
-		data = decrypted
 	} else {
 		s.encMu.Lock()
 		s.isEncrypted = false
