@@ -582,7 +582,9 @@ html, body {
 }
 
 .tools-label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   font-weight: 600;
   color: var(--col-text-muted);
@@ -602,6 +604,10 @@ html, body {
 }
 
 .tool-btn, .tool-btn-case, .tool-btn-template {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   padding: 6px;
   background: var(--col-bg);
   border: 1px solid var(--col-border);
@@ -698,6 +704,10 @@ html, body {
 }
 
 .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   background: var(--col-accent);
   color: #ffffff;
   border: none;
@@ -712,6 +722,10 @@ html, body {
 }
 
 .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   background: var(--col-bg);
   border: 1px solid var(--col-border);
   color: var(--col-text);
