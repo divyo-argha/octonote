@@ -98,7 +98,7 @@ func GetTemplate(name string) string {
 	case "table":
 		return "| Feature | Status | Priority |\n| :--- | :---: | ---: |\n| Auto-Save | ✅ Done | High |\n| P2P Sharing | ✅ Done | High |\n| Themes | ✅ Active | Medium |\n"
 	case "json":
-		return "{\n  \"appName\": \"octoNote\",\n  \"version\": \"2.0.0\",\n  \"features\": [\n    \"Multi-tab\",\n    \"Auto-save\",\n    \"AES-256 Encryption\",\n    \"P2P Share\"\n  ],\n  \"active\": true\n}"
+		return "{\n  \"appName\": \"octoNote\",\n  \"version\": \"2.1.0\",\n  \"features\": [\n    \"Multi-tab\",\n    \"Auto-save\",\n    \"AES-256 Encryption\",\n    \"P2P Share\"\n  ],\n  \"active\": true\n}"
 	case "bug":
 		return "# 🐛 Bug Report\n\n### Description\n\n### Steps to Reproduce\n1. \n2. \n3. \n\n### Expected Behavior\n\n### Actual Behavior\n\n### System Info\n- OS: \n- Version: \n"
 	default:
