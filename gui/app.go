@@ -26,7 +26,6 @@ type App struct {
 	mu       sync.Mutex
 	isLocked bool // true if waiting for decryption password
 
-
 	// share session — only one active at a time
 	shareMu  sync.Mutex
 	shareSes *shareSession
@@ -171,7 +170,7 @@ func (a *App) EnableEncryption(password string) string {
 	}
 	a.storage.SetPassword(password)
 	a.storage.SetEncrypted(true)
-	
+
 	a.mu.Lock()
 	a.storage.Save(a.state)
 	a.mu.Unlock()
@@ -182,7 +181,7 @@ func (a *App) EnableEncryption(password string) string {
 func (a *App) DisableEncryption() string {
 	a.storage.SetPassword("")
 	a.storage.SetEncrypted(false)
-	
+
 	a.mu.Lock()
 	a.storage.Save(a.state)
 	a.mu.Unlock()
@@ -605,4 +604,3 @@ func (a *App) CalculateMetrics(text string) map[string]interface{} {
 func (a *App) GetTemplate(name string) string {
 	return core.GetTemplate(name)
 }
-
