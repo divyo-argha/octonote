@@ -670,18 +670,26 @@ function renderSidebarNotes() {
     
     const wordCount = tab.body ? tab.body.trim().split(/\s+/).filter(Boolean).length : 0;
     const dirtyTagHtml = tab.file_is_dirty ? '<span class="note-dirty-tag">Unsaved</span>' : '';
-    const locationSub = tab.file_path 
-      ? `💾 ${escapeHtml(tab.file_path.split('/').pop() || tab.file_path)}`
-      : `⚡ App Cache`;
+    const locationIcon = tab.file_path 
+      ? '<svg class="note-meta-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+      : '<svg class="note-meta-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+    const locationText = tab.file_path ? escapeHtml(tab.file_path.split('/').pop() || tab.file_path) : 'App Cache';
+    const pinIconHtml = tab.pinned 
+      ? '<svg class="note-pin-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>' 
+      : '';
 
     card.innerHTML = `
       <div class="note-item-header">
         <span class="note-item-title">${escapeHtml(getTabDisplayTitle(tab, index))}</span>
-        ${tab.pinned ? '📌' : ''}
+        ${pinIconHtml}
         ${dirtyTagHtml}
-        <button class="note-rename-mini-btn" title="Rename Note">✏️</button>
+        <button class="note-rename-mini-btn" title="Rename Note (F2)" aria-label="Rename Note">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+          </svg>
+        </button>
       </div>
-      <div class="note-item-sub">${locationSub} • ${wordCount} words • ${tab.body.length} chars</div>
+      <div class="note-item-sub"><span class="note-item-location">${locationIcon} ${locationText}</span> • ${wordCount} words • ${tab.body.length} chars</div>
     `;
 
     card.querySelector('.note-rename-mini-btn')?.addEventListener('click', (e) => {
@@ -1023,13 +1031,22 @@ function renderVersionHistory() {
 
     card.innerHTML = `
       <div class="history-item-header">
-        <span class="history-item-time">⏱ ${escapeHtml(snap.time)}</span>
+        <span class="history-item-time">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>${escapeHtml(snap.time)}</span>
+        </span>
         <span class="history-item-meta">${snap.words}w • ${snap.chars}c</span>
       </div>
       <div class="history-item-preview">${escapeHtml(snippet || '(Empty note)')}</div>
       <div class="history-item-actions">
-        <button class="history-btn history-btn--restore" title="Restore this version">↺ Restore</button>
-        <button class="history-btn history-btn--copy" title="Copy version text">📋 Copy</button>
+        <button class="history-btn history-btn--restore" title="Restore this version">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          <span>Restore</span>
+        </button>
+        <button class="history-btn history-btn--copy" title="Copy version text">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span>Copy</span>
+        </button>
       </div>
     `;
 
@@ -1583,7 +1600,7 @@ async function runJsonFormat(minify) {
   if (window.go?.main?.App) {
     const res = await window.go.main.App.FormatJSON(input, minify);
     if (res.error) {
-      showToast('⚠️ ' + res.error);
+      showToast(res.error);
     } else {
       editor.value = res.result;
       handleEditorInput();

@@ -1215,7 +1215,7 @@ func (m model) clampScroll() model {
 
 func (m model) View() string {
 	if m.quitting {
-		return styleBrand.Render(" ✦ octonote — saved. See you next time! 👋 ") + "\n"
+		return styleBrand.Render(" ✦ octonote — saved. See you next time! ") + "\n"
 	}
 
 	if m.width <= 0 {
@@ -1392,17 +1392,17 @@ func (m model) renderTabBar() string {
 			label = "● " + label
 		}
 
-		icon := "📄"
+		pinPrefix := ""
 		if tab.Pinned {
-			icon = "📌"
+			pinPrefix = "[pin] "
 		}
 
 		if i == m.state.ActiveIndex {
 			style := styleTabActive.Padding(0, padding)
-			tabs = append(tabs, style.Render(fmt.Sprintf("%s %d: %s", icon, i+1, label)))
+			tabs = append(tabs, style.Render(fmt.Sprintf("%s%d: %s", pinPrefix, i+1, label)))
 		} else {
 			style := styleTabInactive.Padding(0, padding)
-			tabs = append(tabs, style.Render(fmt.Sprintf("%d: %s", i+1, label)))
+			tabs = append(tabs, style.Render(fmt.Sprintf("%s%d: %s", pinPrefix, i+1, label)))
 		}
 	}
 
@@ -1552,7 +1552,7 @@ func (m model) renderLegend() string {
 
 	// 2. Tab Rename Prompt
 	if m.renameMode {
-		prompt := lipgloss.NewStyle().Foreground(lipgloss.Color(colAccentLt)).Bold(true).Render("✏️  Rename Tab: ") +
+		prompt := lipgloss.NewStyle().Foreground(lipgloss.Color(colAccentLt)).Bold(true).Render("Rename Tab: ") +
 			styleFileInput.Render(m.renameInput+"▌") + "  " +
 			styleKey.Render("↵") + " confirm  " +
 			styleKey.Render("Esc") + " cancel"
@@ -1565,7 +1565,7 @@ func (m model) renderLegend() string {
 		if len(m.findMatches) > 0 {
 			countStr = fmt.Sprintf("match %d of %d", m.findMatchIdx+1, len(m.findMatches))
 		}
-		prompt := lipgloss.NewStyle().Foreground(lipgloss.Color(colAccentLt)).Bold(true).Render("🔍 Find: ") +
+		prompt := lipgloss.NewStyle().Foreground(lipgloss.Color(colAccentLt)).Bold(true).Render("Find: ") +
 			styleFileInput.Render(m.findInput+"▌") + "  " +
 			styleHeaderMeta.Render("("+countStr+")") + "  " +
 			styleKey.Render("↵") + " next  " +

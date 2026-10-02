@@ -1803,19 +1803,39 @@ body.platform-mac .titlebar__controls {
 }
 
 .note-rename-mini-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   color: var(--col-text-muted);
   font-size: 11px;
   cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 3px;
-  opacity: 0.5;
-  transition: opacity 0.15s;
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  opacity: 0.6;
+  transition: all var(--anim-fast);
 }
 
 .note-rename-mini-btn:hover {
   opacity: 1;
   background: var(--col-surface-hover);
+  color: var(--col-accent-lt);
+  border-color: var(--col-border);
+}
+
+.note-rename-mini-btn svg {
+  display: block;
+}
+
+.note-meta-icon,
+.note-pin-icon {
+  display: inline-block;
+  vertical-align: -1px;
+  margin-right: 3px;
+  color: var(--col-text-muted);
+}
+
+.note-pin-icon {
   color: var(--col-accent-lt);
 }
