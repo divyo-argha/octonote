@@ -1209,6 +1209,34 @@ body.platform-mac .titlebar__controls {
   letter-spacing: 0.5px;
 }
 
+.preview-pane .copy-code-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--col-surface);
+  border: 1px solid var(--col-border);
+  color: var(--col-text-muted);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font-size: 11px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--anim-fast);
+}
+
+.preview-pane .copy-code-btn:hover {
+  background: var(--col-surface-hover);
+  color: var(--col-text);
+  border-color: var(--col-accent);
+}
+
+.preview-pane .copy-code-btn.copied {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border-color: #22c55e;
+}
+
 .preview-pane pre code {
   display: block;
   padding: 14px;

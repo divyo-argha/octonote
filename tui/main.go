@@ -272,6 +272,12 @@ const (
 	filePromptConfirm
 )
 
+const (
+	previewOff   = 0
+	previewSplit = 1
+	previewFull  = 2
+)
+
 // ── Model ─────────────────────────────────────────────────────────────────────
 
 type model struct {
@@ -285,7 +291,7 @@ type model struct {
 	quitting  bool
 
 	// preview state
-	previewMode      bool
+	previewMode      int // previewOff (0), previewSplit (1), previewFull (2)
 	previewScrollRow int
 
 	// share state
@@ -329,13 +335,19 @@ func initialModel(s *core.Storage, st core.State) model {
 		h = 28
 	}
 
+	previewInit := previewOff
+	if w >= 80 {
+		previewInit = previewSplit
+	}
+
 	m := model{
-		storage:   s,
-		state:     st,
-		textareas: tas,
-		width:     w,
-		height:    h,
-		lastSaved: time.Now(),
+		storage:     s,
+		state:       st,
+		textareas:   tas,
+		width:       w,
+		height:      h,
+		previewMode: previewInit,
+		lastSaved:   time.Now(),
 	}
 
 	if m.state.ActiveIndex < len(m.textareas) {
@@ -388,7 +400,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.textareas = tas
 			if m.state.ActiveIndex < len(m.textareas) {
-				if !m.previewMode {
+				if m.previewMode != previewFull {
 					m.textareas[m.state.ActiveIndex].Focus()
 				}
 			}
@@ -430,7 +442,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.shareMode = shareOff
 		m.shareInput = ""
 		m.shareErr = ""
-		m.previewMode = false
+		m.previewMode = previewOff
 		tas := make([]textarea.Model, len(m.state.Tabs))
 		for i, tab := range m.state.Tabs {
 			tas[i] = newTextArea()
@@ -740,11 +752,12 @@ func (m model) handleKey(msg tea.KeyMsg, cmds []tea.Cmd) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 	}
 
-	// ── Preview Mode ──────────────────────────────────────────────────────────
-	if m.previewMode {
+	// ── Full Preview Mode ─────────────────────────────────────────────────────
+	if m.previewMode == previewFull {
 		switch msg.Type {
-		case tea.KeyCtrlP:
-			m.previewMode = false
+		case tea.KeyCtrlP, tea.KeyEsc:
+			m.previewMode = previewOff
+			m = m.resizeTextAreas()
 			idx := m.state.ActiveIndex
 			if idx < len(m.textareas) {
 				m.textareas[idx].Focus()
@@ -825,14 +838,40 @@ func (m model) handleKey(msg tea.KeyMsg, cmds []tea.Cmd) (tea.Model, tea.Cmd) {
 		m.helpMode = true
 		return m, nil
 
-	// Markdown Preview toggle (Ctrl+P)
+	// Markdown Preview toggle (Ctrl+P) - cycles Split Live Preview -> Full Preview -> Off
 	case tea.KeyCtrlP:
-		m.previewMode = true
-		m.previewScrollRow = 0
-		idx := m.state.ActiveIndex
-		if idx < len(m.textareas) {
-			m.textareas[idx].Blur()
+		if m.previewMode == previewOff {
+			if m.width >= 70 {
+				m.previewMode = previewSplit
+				m = m.resizeTextAreas()
+				idx := m.state.ActiveIndex
+				if idx < len(m.textareas) {
+					m.textareas[idx].Focus()
+				}
+			} else {
+				m.previewMode = previewFull
+				m = m.resizeTextAreas()
+				idx := m.state.ActiveIndex
+				if idx < len(m.textareas) {
+					m.textareas[idx].Blur()
+				}
+			}
+		} else if m.previewMode == previewSplit {
+			m.previewMode = previewFull
+			m = m.resizeTextAreas()
+			idx := m.state.ActiveIndex
+			if idx < len(m.textareas) {
+				m.textareas[idx].Blur()
+			}
+		} else {
+			m.previewMode = previewOff
+			m = m.resizeTextAreas()
+			idx := m.state.ActiveIndex
+			if idx < len(m.textareas) {
+				m.textareas[idx].Focus()
+			}
 		}
+		m.previewScrollRow = 0
 		return m, nil
 
 	// Quit (Ctrl+C)
@@ -926,6 +965,10 @@ func (m model) handleKey(msg tea.KeyMsg, cmds []tea.Cmd) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 		if msg.Type == tea.KeyRunes || msg.Type == tea.KeyBackspace ||
 			msg.Type == tea.KeyDelete || msg.Type == tea.KeyEnter {
+			if m.previewMode == previewOff && m.width >= 70 {
+				m.previewMode = previewSplit
+				m = m.resizeTextAreas()
+			}
 			m.syncTabBody(idx)
 		}
 	}
@@ -1043,7 +1086,7 @@ func (m model) switchTab(idx int) model {
 	}
 	m.textareas[m.state.ActiveIndex].Blur()
 	m.state.ActiveIndex = idx
-	if !m.previewMode {
+	if m.previewMode != previewFull {
 		m.textareas[idx].Focus()
 	}
 	m.triggerSave()
@@ -1051,7 +1094,12 @@ func (m model) switchTab(idx int) model {
 }
 
 func (m model) newTab() model {
-	m.previewMode = false
+	if m.width >= 70 {
+		m.previewMode = previewSplit
+	} else {
+		m.previewMode = previewOff
+	}
+	m = m.resizeTextAreas()
 	title := fmt.Sprintf("tab %d", len(m.state.Tabs)+1)
 	tab := core.NewTab(title)
 	m.state.Tabs = append(m.state.Tabs, tab)
@@ -1064,7 +1112,8 @@ func (m model) newTab() model {
 }
 
 func (m model) closeTab() model {
-	m.previewMode = false
+	m.previewMode = previewOff
+	m = m.resizeTextAreas()
 	if len(m.state.Tabs) <= 1 {
 		m.textareas[0].Reset()
 		m.state.Tabs[0].Body = ""
@@ -1085,7 +1134,8 @@ func (m model) closeTab() model {
 }
 
 func (m model) loadFileIntoTab(path, content string) model {
-	m.previewMode = false
+	m.previewMode = previewOff
+	m = m.resizeTextAreas()
 	idx := m.state.ActiveIndex
 	if strings.TrimSpace(m.textareas[idx].Value()) == "" && m.state.Tabs[idx].FilePath == "" {
 		m.state.Tabs[idx].Title = filepath.Base(path)
@@ -1116,6 +1166,9 @@ func (m *model) syncSaveNow() { m.storage.Save(m.state) }
 func (m model) resizeTextAreas() model {
 	contentH := m.getContentHeight()
 	contentW := m.width - 4
+	if m.previewMode == previewSplit && m.width >= 70 {
+		contentW = (m.width - 4) / 2
+	}
 	if contentW < 10 {
 		contentW = 10
 	}
@@ -1367,18 +1420,9 @@ func (m model) renderContent() string {
 		return ""
 	}
 	contentH := m.getContentHeight()
-	contentW := m.width - 4
-	m.textareas[idx].SetWidth(contentW)
-	m.textareas[idx].SetHeight(contentH)
 
-	var box lipgloss.Style
-	if m.textareas[idx].Focused() || m.previewMode {
-		box = styleContentBox
-	} else {
-		box = styleContentBoxBlur
-	}
-
-	if m.previewMode {
+	// 1. Full Preview Mode
+	if m.previewMode == previewFull {
 		markdownText := RenderMarkdown(m.textareas[idx].Value())
 		lines := strings.Split(markdownText, "\n")
 		linesCount := len(lines)
@@ -1403,9 +1447,65 @@ func (m model) renderContent() string {
 			visibleLines = append(visibleLines, "")
 		}
 		previewBody := strings.Join(visibleLines, "\n")
-		return box.Width(m.width - 2).Render(previewBody)
+		return styleContentBox.Width(m.width - 2).Render(previewBody)
 	}
 
+	// 2. Split Live Preview Mode (Editor on Left, Live Preview on Right)
+	if m.previewMode == previewSplit && m.width >= 70 {
+		halfW := (m.width - 4) / 2
+		rightW := m.width - 2 - halfW - 2
+		if halfW < 10 {
+			halfW = 10
+		}
+		if rightW < 10 {
+			rightW = 10
+		}
+
+		m.textareas[idx].SetWidth(halfW - 2)
+		m.textareas[idx].SetHeight(contentH)
+
+		leftBox := styleContentBox.Width(halfW).Render(m.textareas[idx].View())
+
+		markdownText := RenderMarkdown(m.textareas[idx].Value())
+		lines := strings.Split(markdownText, "\n")
+		linesCount := len(lines)
+		maxScroll := linesCount - contentH
+		if maxScroll < 0 {
+			maxScroll = 0
+		}
+		scrollRow := m.previewScrollRow
+		if scrollRow > maxScroll {
+			scrollRow = maxScroll
+		}
+		if scrollRow < 0 {
+			scrollRow = 0
+		}
+
+		end := scrollRow + contentH
+		if end > len(lines) {
+			end = len(lines)
+		}
+		visibleLines := lines[scrollRow:end]
+		for len(visibleLines) < contentH {
+			visibleLines = append(visibleLines, "")
+		}
+		previewBody := strings.Join(visibleLines, "\n")
+		rightBox := styleContentBoxBlur.Width(rightW).Render(previewBody)
+
+		return lipgloss.JoinHorizontal(lipgloss.Top, leftBox, rightBox)
+	}
+
+	// 3. Normal Editor Only
+	contentW := m.width - 4
+	m.textareas[idx].SetWidth(contentW)
+	m.textareas[idx].SetHeight(contentH)
+
+	var box lipgloss.Style
+	if m.textareas[idx].Focused() {
+		box = styleContentBox
+	} else {
+		box = styleContentBoxBlur
+	}
 	return box.Width(m.width - 2).Render(m.textareas[idx].View())
 }
 
@@ -1545,13 +1645,15 @@ func (m model) renderLegend() string {
 
 	// 8. Default Legend
 	modeText := "EDIT"
-	if m.previewMode {
+	if m.previewMode == previewFull {
 		modeText = "PREVIEW"
+	} else if m.previewMode == previewSplit {
+		modeText = "SPLIT PREVIEW"
 	}
 	modePill := styleModePill.Render(modeText)
 
 	var shortcuts []struct{ key, desc string }
-	if m.previewMode {
+	if m.previewMode == previewFull {
 		shortcuts = []struct{ key, desc string }{
 			{"^P", "edit"},
 			{"↑/↓", "scroll"},
@@ -1560,9 +1662,20 @@ func (m model) renderLegend() string {
 			{"?", "help"},
 			{"^C", "quit"},
 		}
+	} else if m.previewMode == previewSplit {
+		shortcuts = []struct{ key, desc string }{
+			{"^P", "full"},
+			{"^N", "new"},
+			{"^W", "close"},
+			{"^F", "find"},
+			{"^S", "save"},
+			{"Tab", "tabs"},
+			{"F1", "help"},
+			{"^C", "quit"},
+		}
 	} else {
 		shortcuts = []struct{ key, desc string }{
-			{"^P", "preview"},
+			{"^P", "split"},
 			{"^N", "new"},
 			{"^W", "close"},
 			{"^E", "rename"},

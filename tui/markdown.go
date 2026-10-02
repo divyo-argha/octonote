@@ -87,10 +87,12 @@ var (
 )
 
 var (
-	reBold       = regexp.MustCompile(`\*\*(.*?)\*\*`)
-	reItalic     = regexp.MustCompile(`\*([^*]+)\*`)
-	reInlineCode = regexp.MustCompile("`([^`]+)`")
-	reLink       = regexp.MustCompile(`\[(.*?)\]\((.*?)\)`)
+	reBold          = regexp.MustCompile(`\*\*(.*?)\*\*`)
+	reItalic        = regexp.MustCompile(`\*([^*]+)\*`)
+	reInlineCode    = regexp.MustCompile("`([^`]+)`")
+	reLink          = regexp.MustCompile(`\[(.*?)\]\((.*?)\)`)
+	reStrikethrough = regexp.MustCompile(`~~(.*?)~~`)
+	reHighlight     = regexp.MustCompile(`==(.*?)==`)
 
 	// HTML Tag Regexes
 	reH1HTML        = regexp.MustCompile(`(?i)^\s*<h1[^>]*>(.*?)</h1>\s*$`)
@@ -218,7 +220,34 @@ func RenderMarkdown(input string) string {
 			continue
 		}
 
-		// 7. Regular line span formatting
+		// 7. Table rows (| col1 | col2 |)
+		if strings.HasPrefix(trimmed, "|") && strings.HasSuffix(trimmed, "|") {
+			parts := strings.Split(trimmed[1:len(trimmed)-1], "|")
+			isSep := true
+			for _, p := range parts {
+				tp := strings.TrimSpace(p)
+				if !strings.HasPrefix(tp, "-") && !strings.HasPrefix(tp, ":-") {
+					isSep = false
+					break
+				}
+			}
+			if isSep {
+				ruleLen := len(trimmed) * 2
+				if ruleLen > 60 {
+					ruleLen = 60
+				}
+				rendered[i] = styleRule.Render(strings.Repeat("─", ruleLen))
+				continue
+			}
+			var cellRenders []string
+			for _, p := range parts {
+				cellRenders = append(cellRenders, styleSpanFormatting(strings.TrimSpace(p)))
+			}
+			rendered[i] = "│ " + strings.Join(cellRenders, " │ ") + " │"
+			continue
+		}
+
+		// 8. Regular line span formatting
 		rendered[i] = styleSpanFormatting(line)
 	}
 
@@ -231,6 +260,24 @@ func styleSpanFormatting(line string) string {
 		sub := reInlineCode.FindStringSubmatch(match)
 		if len(sub) > 1 {
 			return styleInlineCode.Render(sub[1])
+		}
+		return match
+	})
+
+	// Markdown strikethrough ~~text~~
+	line = reStrikethrough.ReplaceAllStringFunc(line, func(match string) string {
+		sub := reStrikethrough.FindStringSubmatch(match)
+		if len(sub) > 1 {
+			return styleStrikethrough.Render(sub[1])
+		}
+		return match
+	})
+
+	// Markdown highlight ==text==
+	line = reHighlight.ReplaceAllStringFunc(line, func(match string) string {
+		sub := reHighlight.FindStringSubmatch(match)
+		if len(sub) > 1 {
+			return styleHighlight.Render(sub[1])
 		}
 		return match
 	})

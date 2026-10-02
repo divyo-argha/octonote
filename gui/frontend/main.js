@@ -75,7 +75,8 @@ const toastContainer       = document.getElementById('toast-container');
 
 let state = { tabs: [], active_index: 0 };
 let isSidebarOpen = true;
-let isPreviewOpen = false;
+let previewMode = localStorage.getItem('octonote_preview_mode') || 'split';
+let isPreviewOpen = previewMode !== 'off';
 let isZenMode = false;
 let saveTimer = null;
 let commandPaletteSelectedIndex = 0;
@@ -299,9 +300,33 @@ function setupEventListeners() {
   document.getElementById('btn-save-disk')?.addEventListener('click', saveActiveNoteToDisk);
   btnPreview.addEventListener('click', togglePreview);
   btnZen.addEventListener('click', toggleZenMode);
+  setPreviewMode(previewMode, false);
 
-  // Interactive Task List Toggle in Preview
+  // Interactive Task List Toggle & Code Copy in Preview
   previewPane.addEventListener('click', (e) => {
+    // 1. Copy code button
+    const copyBtn = e.target.closest('.copy-code-btn');
+    if (copyBtn) {
+      const codeBlock = copyBtn.closest('.code-block');
+      const codeEl = codeBlock ? codeBlock.querySelector('code') : null;
+      if (codeEl) {
+        const textToCopy = codeEl.innerText || codeEl.textContent || '';
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          const originalHTML = copyBtn.innerHTML;
+          copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Copied!</span>';
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            copyBtn.innerHTML = originalHTML;
+            copyBtn.classList.remove('copied');
+          }, 1800);
+        }).catch(() => {
+          showToast('Failed to copy to clipboard');
+        });
+      }
+      return;
+    }
+
+    // 2. Interactive task checkbox toggle
     if (e.target && e.target.classList.contains('task-checkbox')) {
       const lineIdx = parseInt(e.target.getAttribute('data-line'), 10);
       if (!isNaN(lineIdx)) {
@@ -704,7 +729,13 @@ function handleEditorInput() {
   updateLineNumbers();
   updateCursorPosAndMetrics();
   triggerAutoSave();
-  if (isPreviewOpen) renderMarkdownPreview();
+
+  // Automatically show preview after writing if closed, or update existing preview
+  if (previewMode === 'off') {
+    setPreviewMode('split', false);
+  } else {
+    renderMarkdownPreview();
+  }
 }
 
 function triggerAutoSave() {
@@ -1070,28 +1101,87 @@ function updateCursorPosAndMetrics() {
 
 function syncEditorScroll() {
   lineGutter.scrollTop = editor.scrollTop;
-  if (isPreviewOpen) {
+  if (previewMode !== 'off') {
     const percentage = editor.scrollTop / (editor.scrollHeight - editor.clientHeight || 1);
     previewPane.scrollTop = percentage * (previewPane.scrollHeight - previewPane.clientHeight);
   }
 }
 
-// ── Live Split Markdown Preview ───────────────────────────────────────────────
+// ── Markdown Preview Modes (Split / Full / Off) ───────────────────────────────
 
-function togglePreview() {
-  isPreviewOpen = !isPreviewOpen;
-  previewPane.hidden = !isPreviewOpen;
-  btnPreview.setAttribute('aria-pressed', isPreviewOpen ? 'true' : 'false');
-  if (isPreviewOpen) {
+function setPreviewMode(mode, notify = true) {
+  if (mode !== 'split' && mode !== 'full' && mode !== 'off') {
+    mode = 'split';
+  }
+  previewMode = mode;
+  isPreviewOpen = (previewMode !== 'off');
+
+  const editorMain = document.getElementById('editor-main');
+  const previewBtnText = btnPreview.querySelector('span');
+
+  if (previewMode === 'split') {
+    if (editorMain) {
+      editorMain.style.display = 'flex';
+      editorMain.style.flex = '1';
+    }
+    previewPane.hidden = false;
+    previewPane.style.display = 'block';
+    previewPane.style.flex = '1';
+    btnPreview.setAttribute('aria-pressed', 'true');
+    btnPreview.title = 'Markdown Preview: Split (Side-by-side) — Click for Full (Ctrl+M)';
+    if (previewBtnText) previewBtnText.textContent = 'Preview: Split';
     renderMarkdownPreview();
     syncEditorScroll();
+    if (notify) showToast('Split Preview: Side-by-side live editor & markdown');
+  } else if (previewMode === 'full') {
+    if (editorMain) {
+      editorMain.style.display = 'none';
+    }
+    previewPane.hidden = false;
+    previewPane.style.display = 'block';
+    previewPane.style.flex = '1';
+    btnPreview.setAttribute('aria-pressed', 'true');
+    btnPreview.title = 'Markdown Preview: Full (Reader Mode) — Click to Close (Ctrl+M)';
+    if (previewBtnText) previewBtnText.textContent = 'Preview: Full';
+    renderMarkdownPreview();
+    if (notify) showToast('Full Preview: Reader mode (editor hidden)');
+  } else { // 'off'
+    if (editorMain) {
+      editorMain.style.display = 'flex';
+      editorMain.style.flex = '1';
+    }
+    previewPane.hidden = true;
+    previewPane.style.display = 'none';
+    btnPreview.setAttribute('aria-pressed', 'false');
+    btnPreview.title = 'Markdown Preview: Off — Click for Split Preview (Ctrl+M)';
+    if (previewBtnText) previewBtnText.textContent = 'Preview';
+    if (notify) showToast('Editor Only: Markdown preview closed');
+  }
+
+  try {
+    localStorage.setItem('octonote_preview_mode', previewMode);
+  } catch (_) {}
+}
+
+function togglePreview() {
+  if (previewMode === 'off') {
+    setPreviewMode('split');
+  } else if (previewMode === 'split') {
+    setPreviewMode('full');
+  } else {
+    setPreviewMode('off');
   }
 }
 
 function renderMarkdownPreview() {
   const currentScrollTop = previewPane.scrollTop;
+  const wasAtBottom = (previewPane.scrollHeight - previewPane.scrollTop - previewPane.clientHeight) < 30;
   previewPane.innerHTML = parseMarkdownToHTML(editor.value);
-  previewPane.scrollTop = currentScrollTop;
+  if (wasAtBottom) {
+    previewPane.scrollTop = previewPane.scrollHeight;
+  } else {
+    previewPane.scrollTop = currentScrollTop;
+  }
 }
 
 const BLOCK_HTML_TAGS = new Set([
@@ -1099,7 +1189,7 @@ const BLOCK_HTML_TAGS = new Set([
   'col', 'colgroup', 'dd', 'details', 'dialog', 'dir', 'div', 'dl', 'dt',
   'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3',
   'h4', 'h5', 'h6', 'header', 'hgroup', 'hr', 'iframe', 'li', 'main',
-  'nav', 'noscript', 'ol', 'p', 'pre', 'section', 'summary', 'table',
+  'nav', 'noscript', 'ol', 'p', 'pre', 'section', 'style', 'summary', 'table',
   'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'ul', 'video', 'audio',
   'svg', 'math'
 ]);
@@ -1119,14 +1209,21 @@ function sanitizeHtmlTag(tag) {
   return clean;
 }
 
+function splitTableRow(row) {
+  let r = row.trim();
+  if (r.startsWith('|')) r = r.slice(1);
+  if (r.endsWith('|')) r = r.slice(0, -1);
+  return r.split('|').map(c => c.trim());
+}
+
 function parseMarkdownToHTML(text) {
   if (!text) return '<p class="preview-empty" style="color:var(--col-text-muted);font-style:italic;">Nothing to preview yet…</p>';
 
-  // 1. Separate fenced code blocks (```lang ... ```)
+  // 1. Separate fenced code blocks (```lang ... ``` or ~~~lang ... ~~~ or unclosed while typing)
   const codeBlocks = [];
-  let processed = text.replace(/```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)```/g, (match, lang, code) => {
+  let processed = text.replace(/(?:```|~~~)([a-zA-Z0-9_+-]*)\r?\n([\s\S]*?)(?:```|~~~|$)/g, (match, lang, code) => {
     const placeholder = `\uFFFCCODEBLOCK${codeBlocks.length}\uFFFD`;
-    codeBlocks.push({ lang: lang || 'text', code });
+    codeBlocks.push({ lang: (lang || 'code').trim(), code });
     return placeholder;
   });
 
@@ -1144,6 +1241,8 @@ function parseMarkdownToHTML(text) {
   let inList = false;
   let listType = ''; // 'ul' or 'ol' or 'task'
   let inTable = false;
+  let pendingHeaderCells = null;
+  let tableAlignments = [];
   let inBlockquote = false;
   let currentParagraph = [];
   const blockStack = [];
@@ -1165,8 +1264,14 @@ function parseMarkdownToHTML(text) {
 
   const closeTable = () => {
     if (inTable) {
-      output.push('</tbody></table>');
+      if (pendingHeaderCells) {
+        output.push(`<p>${pendingHeaderCells.map(formatInline).join(' | ')}</p>`);
+        pendingHeaderCells = null;
+      } else {
+        output.push('</tbody></table>');
+      }
       inTable = false;
+      tableAlignments = [];
     }
   };
 
@@ -1247,28 +1352,56 @@ function parseMarkdownToHTML(text) {
       continue;
     }
 
-    // Table rows (| col1 | col2 |)
-    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+    // Table rows (| col1 | col2 | or col1 | col2)
+    const isTableRow = trimmed.includes('|') && !trimmed.startsWith('<!--');
+    if (isTableRow) {
       flushParagraph();
       closeList();
       closeBlockquote();
 
-      const cells = trimmed.slice(1, -1).split('|').map(c => c.trim());
-      const isSep = cells.every(c => /^:?-+:?$/.test(c));
-      if (isSep) {
+      const cells = splitTableRow(trimmed);
+      const isSep = cells.length > 0 && cells.every(c => /^:?-{1,}:?$/.test(c));
+
+      if (isSep && inTable && pendingHeaderCells) {
+        tableAlignments = cells.map(c => {
+          const left = c.startsWith(':');
+          const right = c.endsWith(':');
+          if (left && right) return 'center';
+          if (right) return 'right';
+          if (left) return 'left';
+          return '';
+        });
+        output.push('<table><thead><tr>');
+        pendingHeaderCells.forEach((c, idx) => {
+          const align = tableAlignments[idx] ? ` style="text-align:${tableAlignments[idx]}"` : '';
+          output.push(`<th${align}>${formatInline(c)}</th>`);
+        });
+        output.push('</tr></thead><tbody>');
+        pendingHeaderCells = null;
         continue;
       }
 
       if (!inTable) {
         inTable = true;
-        output.push('<table><thead><tr>');
-        cells.forEach(c => output.push(`<th>${formatInline(c)}</th>`));
-        output.push('</tr></thead><tbody>');
-      } else {
-        output.push('<tr>');
-        cells.forEach(c => output.push(`<td>${formatInline(c)}</td>`));
-        output.push('</tr>');
+        pendingHeaderCells = cells;
+        tableAlignments = [];
+        continue;
       }
+
+      if (pendingHeaderCells) {
+        output.push(`<p>${pendingHeaderCells.map(formatInline).join(' | ')}</p>`);
+        pendingHeaderCells = null;
+        inTable = false;
+        currentParagraph.push(trimmed);
+        continue;
+      }
+
+      output.push('<tr>');
+      cells.forEach((c, idx) => {
+        const align = tableAlignments[idx] ? ` style="text-align:${tableAlignments[idx]}"` : '';
+        output.push(`<td${align}>${formatInline(c)}</td>`);
+      });
+      output.push('</tr>');
       continue;
     } else {
       closeTable();
@@ -1304,7 +1437,7 @@ function parseMarkdownToHTML(text) {
     }
 
     // Task list items (- [ ] / - [x])
-    const taskMatch = trimmed.match(/^[-*]\s+\[([ xX])\]\s+(.*)$/);
+    const taskMatch = trimmed.match(/^[-*+]\s+\[([ xX])\]\s+(.*)$/);
     if (taskMatch) {
       flushParagraph();
       closeTable();
@@ -1369,10 +1502,11 @@ function parseMarkdownToHTML(text) {
 
   let html = output.join('\n');
 
-  // Re-insert code blocks with safe HTML and language tags
+  // Re-insert code blocks with safe HTML, language badge, and copy button
   codeBlocks.forEach((cb, idx) => {
-    const escapedCode = escapeHtml(cb.code.trim());
-    const replacement = `<pre class="code-block"><div class="code-header"><span class="code-lang">${escapeHtml(cb.lang)}</span></div><code>${escapedCode}</code></pre>`;
+    const escapedCode = escapeHtml(cb.code.replace(/\r?\n$/, ''));
+    const langDisplay = escapeHtml(cb.lang || 'code');
+    const replacement = `<pre class="code-block"><div class="code-header"><span class="code-lang">${langDisplay}</span><button type="button" class="copy-code-btn" title="Copy code snippet"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Copy</span></button></div><code>${escapedCode}</code></pre>`;
     html = html.replace(`\uFFFCCODEBLOCK${idx}\uFFFD`, replacement);
   });
 
@@ -1403,14 +1537,25 @@ function formatInline(str) {
     .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" loading="lazy" />')
     // Links: [text](url)
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    // Autolinks for raw URLs: https://... or http://...
+    .replace(/(^|[^"'])(https?:\/\/[^\s<)"'>]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>')
+    // Bold + Italic: ***text*** or ___text___
+    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/___(.+?)___/g, '<strong><em>$1</em></strong>')
     // Bold: **text** or __text__
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/__(.*?)__/g, '<strong>$1</strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/__(.+?)__/g, '<strong>$1</strong>')
     // Strikethrough: ~~text~~
-    .replace(/~~(.*?)~~/g, '<del>$1</del>')
+    .replace(/~~(.+?)~~/g, '<del>$1</del>')
+    // Highlights: ==text==
+    .replace(/==(.+?)==/g, '<mark>$1</mark>')
     // Italic: *text* or _text_
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(/_([^_]+)_/g, '<em>$1</em>');
+    .replace(/_([^_]+)_/g, '<em>$1</em>')
+    // Superscript: ^text^
+    .replace(/\^([^\s^]+)\^/g, '<sup>$1</sup>')
+    // Subscript: ~text~ (single tilde)
+    .replace(/~([^\s~]+)~/g, '<sub>$1</sub>');
 
   // 3. Restore protected HTML tags
   tags.forEach((tag, idx) => {
@@ -1477,7 +1622,10 @@ function getBuiltinCommands() {
     { id: 'save-to-disk', title: 'Save Active Note to Disk File...', shortcut: 'Ctrl+S', action: saveActiveNoteToDisk },
     { id: 'close-tab', title: 'Close Active Tab', shortcut: 'Ctrl+W', action: () => closeTab(state.active_index) },
     { id: 'toggle-sidebar', title: 'Toggle Notes Sidebar', shortcut: 'Ctrl+B', action: toggleSidebar },
-    { id: 'toggle-preview', title: 'Toggle Split Markdown Preview', shortcut: 'Ctrl+M', action: togglePreview },
+    { id: 'toggle-preview', title: 'Toggle Markdown Preview Mode (Split / Full / Off)', shortcut: 'Ctrl+M', action: togglePreview },
+    { id: 'preview-split', title: 'Preview: Split Mode (Side-by-side)', shortcut: '', action: () => setPreviewMode('split') },
+    { id: 'preview-full', title: 'Preview: Full Mode (Reader view)', shortcut: '', action: () => setPreviewMode('full') },
+    { id: 'preview-off', title: 'Preview: Off (Editor only)', shortcut: '', action: () => setPreviewMode('off') },
     { id: 'toggle-zen', title: 'Toggle Zen Mode', shortcut: 'F11', action: toggleZenMode },
     { id: 'format-json', title: 'Format & Indent JSON', shortcut: 'Ctrl+Shift+J', action: () => runJsonFormat(false) },
     { id: 'minify-json', title: 'Minify JSON', shortcut: '', action: () => runJsonFormat(true) },
