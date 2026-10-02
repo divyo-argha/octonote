@@ -90,9 +90,9 @@ var (
 			Padding(0, 1)
 
 	styleContentBox = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color(colBorderFocus)).
-				Padding(0, 1)
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(colBorderFocus)).
+			Padding(0, 1)
 
 	styleContentBoxBlur = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
@@ -1110,7 +1110,7 @@ func (m model) loadFileIntoTab(path, content string) model {
 	return m
 }
 
-func (m *model) triggerSave()  { m.storage.Save(m.state) }
+func (m *model) triggerSave() { m.storage.Save(m.state) }
 func (m *model) syncSaveNow() { m.storage.Save(m.state) }
 
 func (m model) resizeTextAreas() model {

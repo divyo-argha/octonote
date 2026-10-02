@@ -72,6 +72,18 @@ var (
 	styleLink = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#60a5fa")).
 			Underline(true)
+
+	styleUnderline = lipgloss.NewStyle().
+			Underline(true)
+
+	styleStrikethrough = lipgloss.NewStyle().
+				Strikethrough(true).
+				Foreground(lipgloss.Color("#94a3b8"))
+
+	styleHighlight = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#000000")).
+			Background(lipgloss.Color("#facc15")).
+			Padding(0, 1)
 )
 
 var (
@@ -79,6 +91,23 @@ var (
 	reItalic     = regexp.MustCompile(`\*([^*]+)\*`)
 	reInlineCode = regexp.MustCompile("`([^`]+)`")
 	reLink       = regexp.MustCompile(`\[(.*?)\]\((.*?)\)`)
+
+	// HTML Tag Regexes
+	reH1HTML        = regexp.MustCompile(`(?i)^\s*<h1[^>]*>(.*?)</h1>\s*$`)
+	reH2HTML        = regexp.MustCompile(`(?i)^\s*<h2[^>]*>(.*?)</h2>\s*$`)
+	reH3HTML        = regexp.MustCompile(`(?i)^\s*<h3[^>]*>(.*?)</h3>\s*$`)
+	reH46HTML       = regexp.MustCompile(`(?i)^\s*<h[4-6][^>]*>(.*?)</h[4-6]>\s*$`)
+	reHRHTML        = regexp.MustCompile(`(?i)^\s*<hr\s*/?>\s*$`)
+	reLiHTML        = regexp.MustCompile(`(?i)^\s*<li[^>]*>(.*?)</li>\s*$`)
+	reBoldHTML      = regexp.MustCompile(`(?i)<(?:b|strong)[^>]*>(.*?)</(?:b|strong)>`)
+	reItalicHTML    = regexp.MustCompile(`(?i)<(?:i|em)[^>]*>(.*?)</(?:i|em)>`)
+	reUnderlineHTML = regexp.MustCompile(`(?i)<u[^>]*>(.*?)</u>`)
+	reStrikeHTML    = regexp.MustCompile(`(?i)<(?:s|del|strike)[^>]*>(.*?)</(?:s|del|strike)>`)
+	reCodeHTML      = regexp.MustCompile(`(?i)<(?:code|kbd)[^>]*>(.*?)</(?:code|kbd)>`)
+	reMarkHTML      = regexp.MustCompile(`(?i)<mark[^>]*>(.*?)</mark>`)
+	reLinkHTML      = regexp.MustCompile(`(?i)<a\s+[^>]*href=["']([^"']*)["'][^>]*>(.*?)</a>`)
+	reBrHTML        = regexp.MustCompile(`(?i)<br\s*/?>`)
+	reStripHTML     = regexp.MustCompile(`(?i)</?(?:div|p|details|summary|span|font|table|thead|tbody|tr|td|th|section|article|figure|figcaption|center)[^>]*>`)
 )
 
 // RenderMarkdown parses the input plain text line-by-line and applies lipgloss styles
@@ -112,23 +141,39 @@ func RenderMarkdown(input string) string {
 			continue
 		}
 
-		// 2. Horizontal Rules (---, ***, ___)
-		if (trimmed == "---" || trimmed == "***" || trimmed == "___") && len(trimmed) >= 3 {
+		// 2. Horizontal Rules (---, ***, ___ or <hr>, <hr/>)
+		if ((trimmed == "---" || trimmed == "***" || trimmed == "___") && len(trimmed) >= 3) || reHRHTML.MatchString(trimmed) {
 			rendered[i] = styleRule.Render("────────────────────────────────────────────────────────────")
 			continue
 		}
 
-		// 3. Headers
+		// 3. Headers (# or <h1>, <h2>, <h3>)
 		if strings.HasPrefix(line, "# ") {
 			rendered[i] = styleHeader1.Render("󰉫 " + line[2:])
+			continue
+		}
+		if m := reH1HTML.FindStringSubmatch(trimmed); len(m) > 1 {
+			rendered[i] = styleHeader1.Render("󰉫 " + styleSpanFormatting(m[1]))
 			continue
 		}
 		if strings.HasPrefix(line, "## ") {
 			rendered[i] = styleHeader2.Render("󰉬 " + line[3:])
 			continue
 		}
+		if m := reH2HTML.FindStringSubmatch(trimmed); len(m) > 1 {
+			rendered[i] = styleHeader2.Render("󰉬 " + styleSpanFormatting(m[1]))
+			continue
+		}
 		if strings.HasPrefix(line, "### ") {
 			rendered[i] = styleHeader3.Render("󰉭 " + line[4:])
+			continue
+		}
+		if m := reH3HTML.FindStringSubmatch(trimmed); len(m) > 1 {
+			rendered[i] = styleHeader3.Render("󰉭 " + styleSpanFormatting(m[1]))
+			continue
+		}
+		if m := reH46HTML.FindStringSubmatch(trimmed); len(m) > 1 {
+			rendered[i] = styleHeader3.Render("󰉭 " + styleSpanFormatting(m[1]))
 			continue
 		}
 
@@ -147,7 +192,7 @@ func RenderMarkdown(input string) string {
 			continue
 		}
 
-		// 5. Bullet lists
+		// 5. Bullet lists (- item, * item, or <li>item</li>)
 		if strings.HasPrefix(trimmed, "- ") {
 			idx := strings.Index(line, "- ")
 			indent := line[:idx]
@@ -158,6 +203,10 @@ func RenderMarkdown(input string) string {
 			idx := strings.Index(line, "* ")
 			indent := line[:idx]
 			rendered[i] = indent + styleBullet.Render("• ") + styleSpanFormatting(line[idx+2:])
+			continue
+		}
+		if m := reLiHTML.FindStringSubmatch(trimmed); len(m) > 1 {
+			rendered[i] = styleBullet.Render("• ") + styleSpanFormatting(m[1])
 			continue
 		}
 
@@ -177,7 +226,7 @@ func RenderMarkdown(input string) string {
 }
 
 func styleSpanFormatting(line string) string {
-	// Inline code replacement
+	// Markdown inline code
 	line = reInlineCode.ReplaceAllStringFunc(line, func(match string) string {
 		sub := reInlineCode.FindStringSubmatch(match)
 		if len(sub) > 1 {
@@ -186,7 +235,7 @@ func styleSpanFormatting(line string) string {
 		return match
 	})
 
-	// Bold replacement
+	// Markdown bold
 	line = reBold.ReplaceAllStringFunc(line, func(match string) string {
 		sub := reBold.FindStringSubmatch(match)
 		if len(sub) > 1 {
@@ -195,7 +244,7 @@ func styleSpanFormatting(line string) string {
 		return match
 	})
 
-	// Italic replacement
+	// Markdown italic
 	line = reItalic.ReplaceAllStringFunc(line, func(match string) string {
 		sub := reItalic.FindStringSubmatch(match)
 		if len(sub) > 1 {
@@ -204,7 +253,7 @@ func styleSpanFormatting(line string) string {
 		return match
 	})
 
-	// Link replacement [title](url) -> title (url)
+	// Markdown link [title](url) -> title (url)
 	line = reLink.ReplaceAllStringFunc(line, func(match string) string {
 		sub := reLink.FindStringSubmatch(match)
 		if len(sub) > 2 {
@@ -212,6 +261,75 @@ func styleSpanFormatting(line string) string {
 		}
 		return match
 	})
+
+	// HTML bold <b> / <strong>
+	line = reBoldHTML.ReplaceAllStringFunc(line, func(match string) string {
+		sub := reBoldHTML.FindStringSubmatch(match)
+		if len(sub) > 1 {
+			return styleBold.Render(sub[1])
+		}
+		return match
+	})
+
+	// HTML italic <i> / <em>
+	line = reItalicHTML.ReplaceAllStringFunc(line, func(match string) string {
+		sub := reItalicHTML.FindStringSubmatch(match)
+		if len(sub) > 1 {
+			return styleItalic.Render(sub[1])
+		}
+		return match
+	})
+
+	// HTML underline <u>
+	line = reUnderlineHTML.ReplaceAllStringFunc(line, func(match string) string {
+		sub := reUnderlineHTML.FindStringSubmatch(match)
+		if len(sub) > 1 {
+			return styleUnderline.Render(sub[1])
+		}
+		return match
+	})
+
+	// HTML strike <s> / <del> / <strike>
+	line = reStrikeHTML.ReplaceAllStringFunc(line, func(match string) string {
+		sub := reStrikeHTML.FindStringSubmatch(match)
+		if len(sub) > 1 {
+			return styleStrikethrough.Render(sub[1])
+		}
+		return match
+	})
+
+	// HTML code & kbd <code> / <kbd>
+	line = reCodeHTML.ReplaceAllStringFunc(line, func(match string) string {
+		sub := reCodeHTML.FindStringSubmatch(match)
+		if len(sub) > 1 {
+			return styleInlineCode.Render(sub[1])
+		}
+		return match
+	})
+
+	// HTML highlight <mark>
+	line = reMarkHTML.ReplaceAllStringFunc(line, func(match string) string {
+		sub := reMarkHTML.FindStringSubmatch(match)
+		if len(sub) > 1 {
+			return styleHighlight.Render(sub[1])
+		}
+		return match
+	})
+
+	// HTML link <a href="...">title</a>
+	line = reLinkHTML.ReplaceAllStringFunc(line, func(match string) string {
+		sub := reLinkHTML.FindStringSubmatch(match)
+		if len(sub) > 2 {
+			return styleLink.Render(sub[2]) + " " + styleItalic.Render("("+sub[1]+")")
+		}
+		return match
+	})
+
+	// HTML line breaks <br>
+	line = reBrHTML.ReplaceAllString(line, " ")
+
+	// Strip remaining structural HTML tags (e.g. <div>, <span>, <details>) for clean terminal rendering
+	line = reStripHTML.ReplaceAllString(line, "")
 
 	return line
 }

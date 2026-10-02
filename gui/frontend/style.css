@@ -1343,9 +1343,101 @@ body.platform-mac .titlebar__controls {
   border: 1px solid var(--col-border);
 }
 
-.preview-pane del {
+.preview-pane del,
+.preview-pane s,
+.preview-pane strike {
   color: var(--col-text-muted);
   text-decoration: line-through;
+}
+
+.preview-pane u {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.preview-pane kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--col-text);
+  background: var(--col-bg-subtle);
+  border: 1px solid var(--col-border-bright);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+  vertical-align: baseline;
+}
+
+.preview-pane mark {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fde047;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.preview-pane sub,
+.preview-pane sup {
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+.preview-pane sup { top: -0.5em; }
+.preview-pane sub { bottom: -0.25em; }
+
+.preview-pane details {
+  margin: 12px 0;
+  padding: 10px 14px;
+  background: var(--col-bg-subtle);
+  border: 1px solid var(--col-border);
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.preview-pane details[open] {
+  border-color: var(--col-border-bright);
+  background: var(--col-bg-surface);
+}
+
+.preview-pane summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--col-text);
+  outline: none;
+  user-select: none;
+  padding: 2px 0;
+}
+
+.preview-pane summary:hover {
+  color: var(--col-accent-lt);
+}
+
+.preview-pane details[open] summary {
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--col-border);
+  padding-bottom: 6px;
+}
+
+.preview-pane video,
+.preview-pane audio,
+.preview-pane iframe {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+  margin: 10px 0;
+}
+
+.preview-pane figure {
+  margin: 14px 0;
+  text-align: center;
+}
+
+.preview-pane figcaption {
+  font-size: 0.85em;
+  color: var(--col-text-muted);
+  margin-top: 6px;
+  font-style: italic;
 }
 
 /* ── Find & Replace Bar ──────────────────────────────────────────────────────── */

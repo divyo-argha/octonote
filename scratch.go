@@ -35,9 +35,9 @@ func main() {
 	for i := range parts {
 		parts[i] = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render(parts[i])
 	}
-	
+
 	saveStatus := "✓ saved 21:12:28"
-	
+
 	var lines []string
 	currentLine := ""
 	for i, part := range parts {
@@ -66,11 +66,11 @@ func main() {
 			lines = append(lines, currentLine)
 		}
 	}
-	
+
 	styleLegend := lipgloss.NewStyle().
-			Background(lipgloss.Color("236")).
-			Foreground(lipgloss.Color("248")).
-			Padding(0, 1)
+		Background(lipgloss.Color("236")).
+		Foreground(lipgloss.Color("248")).
+		Padding(0, 1)
 
 	res := styleLegend.Width(width).Render(strings.Join(lines, "\n"))
 	fmt.Println("Result:")

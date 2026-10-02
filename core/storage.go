@@ -330,7 +330,7 @@ func MigrateState(st State) State {
 	// Sanitise all tab fields on every load.
 	for i := range st.Tabs {
 		st.Tabs[i].Title = SanitiseTitle(st.Tabs[i].Title)
-		st.Tabs[i].Body  = stripNUL(st.Tabs[i].Body)
+		st.Tabs[i].Body = stripNUL(st.Tabs[i].Body)
 		if st.Tabs[i].ID == "" {
 			st.Tabs[i].ID = generateID()
 		}

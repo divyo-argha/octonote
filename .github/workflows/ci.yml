@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+  pull_request:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          check-latest: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify Go Formatting
+        run: |
+          UNFORMATTED=$(gofmt -l .)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "The following files are not formatted properly:"
+            echo "$UNFORMATTED"
+            exit 1
+          fi
+
+      - name: Run Go Vet
+        run: go vet ./...
+
+      - name: Run Go Unit Tests (with -race)
+        run: go test -v -count=1 -race ./...
+
+      - name: Verify JavaScript Syntax & Lint
+        run: |
+          node --check gui/frontend/main.js
+          node --check npm/bin/octonote.js
+          node --check npm/scripts/publish-all.js
+
+  build-cli-matrix:
+    name: Cross-Compile CLI (${{ matrix.target.goos }}/${{ matrix.target.goarch }})
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { goos: 'linux', goarch: 'amd64', ext: '' }
+          - { goos: 'linux', goarch: 'arm64', ext: '' }
+          - { goos: 'darwin', goarch: 'amd64', ext: '' }
+          - { goos: 'darwin', goarch: 'arm64', ext: '' }
+          - { goos: 'windows', goarch: 'amd64', ext: '.exe' }
+          - { goos: 'windows', goarch: 'arm64', ext: '.exe' }
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Compile TUI Binary
+        env:
+          GOOS: ${{ matrix.target.goos }}
+          GOARCH: ${{ matrix.target.goarch }}
+        run: |
+          go build -trimpath -ldflags "-s -w -X main.version=ci-${{ github.sha }}" -o octonote-${{ matrix.target.goos }}-${{ matrix.target.goarch }}${{ matrix.target.ext }} ./tui
+          ls -la octonote-*
+
+  build-gui-verify:
+    name: Verify GUI Build (${{ matrix.os }})
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux/amd64
+          - os: macos-latest
+            platform: darwin/universal
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Linux GUI Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev build-essential pkg-config libwebkit2gtk-4.0-dev || sudo apt-get install -y libgtk-3-dev build-essential pkg-config libwebkit2gtk-4.1-dev
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Verify Wails Build
+        shell: bash
+        run: |
+          cd gui
+          WAILS_FLAGS="-platform ${{ matrix.platform }} -clean"
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            if pkg-config --exists webkit2gtk-4.1 && ! pkg-config --exists webkit2gtk-4.0; then
+              WAILS_FLAGS="${WAILS_FLAGS} -tags webkit2_41"
+            fi
+          fi
+          wails build ${WAILS_FLAGS}

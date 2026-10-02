@@ -1094,13 +1094,38 @@ function renderMarkdownPreview() {
   previewPane.scrollTop = currentScrollTop;
 }
 
+const BLOCK_HTML_TAGS = new Set([
+  'address', 'article', 'aside', 'blockquote', 'canvas', 'caption', 'center',
+  'col', 'colgroup', 'dd', 'details', 'dialog', 'dir', 'div', 'dl', 'dt',
+  'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3',
+  'h4', 'h5', 'h6', 'header', 'hgroup', 'hr', 'iframe', 'li', 'main',
+  'nav', 'noscript', 'ol', 'p', 'pre', 'section', 'summary', 'table',
+  'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'ul', 'video', 'audio',
+  'svg', 'math'
+]);
+
+const VOID_HTML_TAGS = new Set([
+  'hr', 'br', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr', 'col'
+]);
+
+function sanitizeHtmlTag(tag) {
+  if (!tag) return '';
+  // Strip dangerous script tags
+  if (/^<\/?\s*script/i.test(tag)) return '';
+  // Strip inline event handlers like onclick=, onerror=, onload=
+  let clean = tag.replace(/\s+on[a-zA-Z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  // Disallow javascript: pseudo-protocol in href or src
+  clean = clean.replace(/(href|src)\s*=\s*["']\s*javascript:[^"']*["']/gi, '$1="#"');
+  return clean;
+}
+
 function parseMarkdownToHTML(text) {
   if (!text) return '<p class="preview-empty" style="color:var(--col-text-muted);font-style:italic;">Nothing to preview yet…</p>';
 
   // 1. Separate fenced code blocks (```lang ... ```)
   const codeBlocks = [];
   let processed = text.replace(/```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)```/g, (match, lang, code) => {
-    const placeholder = `§§CODEBLOCK_${codeBlocks.length}§§`;
+    const placeholder = `\uFFFCCODEBLOCK${codeBlocks.length}\uFFFD`;
     codeBlocks.push({ lang: lang || 'text', code });
     return placeholder;
   });
@@ -1108,7 +1133,7 @@ function parseMarkdownToHTML(text) {
   // 2. Separate inline codes (`code`)
   const inlineCodes = [];
   processed = processed.replace(/`([^`\n]+)`/g, (match, code) => {
-    const placeholder = `§§INLINECODE_${inlineCodes.length}§§`;
+    const placeholder = `\uFFFCINLINECODE${inlineCodes.length}\uFFFD`;
     inlineCodes.push(code);
     return placeholder;
   });
@@ -1121,6 +1146,7 @@ function parseMarkdownToHTML(text) {
   let inTable = false;
   let inBlockquote = false;
   let currentParagraph = [];
+  const blockStack = [];
 
   const flushParagraph = () => {
     if (currentParagraph.length > 0) {
@@ -1155,22 +1181,59 @@ function parseMarkdownToHTML(text) {
     const line = rawLines[i];
     const trimmed = line.trim();
 
-    // Empty line ends current paragraph / block
+    // Empty line ends current paragraph / markdown block
     if (!trimmed) {
       flushParagraph();
       closeList();
       closeTable();
       closeBlockquote();
+      if (blockStack.length > 0) {
+        output.push('');
+      }
       continue;
     }
 
     // Code block placeholder
-    if (trimmed.startsWith('§§CODEBLOCK_')) {
+    if (trimmed.startsWith('\uFFFCCODEBLOCK')) {
       flushParagraph();
       closeList();
       closeTable();
       closeBlockquote();
       output.push(trimmed);
+      continue;
+    }
+
+    // Check for HTML comments
+    const isHtmlComment = trimmed.startsWith('<!--');
+
+    // Check for block-level HTML tags
+    const blockStartMatch = trimmed.match(/^<([a-zA-Z][a-zA-Z0-9:-]*)([\s>])/);
+    const tagName = blockStartMatch ? blockStartMatch[1].toLowerCase() : '';
+    const isBlockTag = BLOCK_HTML_TAGS.has(tagName);
+    const blockCloseMatch = trimmed.match(/^<\/([a-zA-Z][a-zA-Z0-9:-]*)\s*>/);
+    const isClosingTag = blockCloseMatch ? BLOCK_HTML_TAGS.has(blockCloseMatch[1].toLowerCase()) : false;
+
+    // Handle block HTML elements & lines inside an open block tag (e.g. details, div, table)
+    if (isHtmlComment || isBlockTag || isClosingTag || blockStack.length > 0) {
+      flushParagraph();
+      closeList();
+      closeTable();
+      closeBlockquote();
+
+      const isVoid = VOID_HTML_TAGS.has(tagName);
+      const closesSameLine = isBlockTag && (isVoid || trimmed.endsWith('/>') || new RegExp(`</${tagName}>`, 'i').test(trimmed));
+
+      if (isBlockTag && !closesSameLine && !trimmed.endsWith('/>') && !isVoid) {
+        blockStack.push(tagName);
+      } else if (isClosingTag && blockCloseMatch) {
+        const closeTag = blockCloseMatch[1].toLowerCase();
+        const lastIdx = blockStack.lastIndexOf(closeTag);
+        if (lastIdx !== -1) {
+          blockStack.splice(lastIdx, 1);
+        }
+      }
+
+      output.push(formatInline(trimmed));
       continue;
     }
 
@@ -1310,13 +1373,13 @@ function parseMarkdownToHTML(text) {
   codeBlocks.forEach((cb, idx) => {
     const escapedCode = escapeHtml(cb.code.trim());
     const replacement = `<pre class="code-block"><div class="code-header"><span class="code-lang">${escapeHtml(cb.lang)}</span></div><code>${escapedCode}</code></pre>`;
-    html = html.replace(`§§CODEBLOCK_${idx}§§`, replacement);
+    html = html.replace(`\uFFFCCODEBLOCK${idx}\uFFFD`, replacement);
   });
 
   // Re-insert inline codes
   inlineCodes.forEach((ic, idx) => {
     const escaped = escapeHtml(ic);
-    html = html.replace(`§§INLINECODE_${idx}§§`, `<code>${escaped}</code>`);
+    html = html.replace(`\uFFFCINLINECODE${idx}\uFFFD`, `<code>${escaped}</code>`);
   });
 
   return html;
@@ -1324,7 +1387,18 @@ function parseMarkdownToHTML(text) {
 
 function formatInline(str) {
   if (!str) return '';
-  return str
+
+  // 1. Protect existing HTML tags and comments so attributes (underscores, URLs, styles) are never corrupted
+  const tags = [];
+  let tokenized = str.replace(/<!--[\s\S]*?-->|<\/?[a-zA-Z][a-zA-Z0-9:-]*(\s+[^>]*)?\/?>/g, (match) => {
+    const safeTag = sanitizeHtmlTag(match);
+    const placeholder = `\uFFFCHTAG${tags.length}\uFFFD`;
+    tags.push(safeTag);
+    return placeholder;
+  });
+
+  // 2. Format standard Markdown inline syntax
+  tokenized = tokenized
     // Images: ![alt](url)
     .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" loading="lazy" />')
     // Links: [text](url)
@@ -1337,6 +1411,13 @@ function formatInline(str) {
     // Italic: *text* or _text_
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
     .replace(/_([^_]+)_/g, '<em>$1</em>');
+
+  // 3. Restore protected HTML tags
+  tags.forEach((tag, idx) => {
+    tokenized = tokenized.replace(`\uFFFCHTAG${idx}\uFFFD`, tag);
+  });
+
+  return tokenized;
 }
 
 // ── Zen / Distraction-Free Mode ───────────────────────────────────────────────

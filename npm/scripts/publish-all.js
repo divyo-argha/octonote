@@ -12,11 +12,12 @@ const GITHUB_BASE = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/down
 
 const PACKAGES = {
   // CLI packages only
-  '@divyo-argha/octonote-darwin-arm64': { os: 'darwin', cpu: 'arm64', releaseAsset: 'octonote-darwin-arm64' },
-  '@divyo-argha/octonote-darwin-x64':   { os: 'darwin', cpu: 'x64',   releaseAsset: 'octonote-darwin-amd64' },
-  '@divyo-argha/octonote-linux-arm64':  { os: 'linux',  cpu: 'arm64', releaseAsset: 'octonote-linux-arm64' },
-  '@divyo-argha/octonote-linux-x64':    { os: 'linux',  cpu: 'x64',   releaseAsset: 'octonote-linux-amd64' },
-  '@divyo-argha/octonote-windows-x64':  { os: 'win32',  cpu: 'x64',   releaseAsset: 'octonote-windows-amd64.exe' }
+  '@divyo-argha/octonote-darwin-arm64':  { os: 'darwin', cpu: 'arm64', releaseAsset: 'octonote-darwin-arm64' },
+  '@divyo-argha/octonote-darwin-x64':    { os: 'darwin', cpu: 'x64',   releaseAsset: 'octonote-darwin-amd64' },
+  '@divyo-argha/octonote-linux-arm64':   { os: 'linux',  cpu: 'arm64', releaseAsset: 'octonote-linux-arm64' },
+  '@divyo-argha/octonote-linux-x64':     { os: 'linux',  cpu: 'x64',   releaseAsset: 'octonote-linux-amd64' },
+  '@divyo-argha/octonote-windows-x64':   { os: 'win32',  cpu: 'x64',   releaseAsset: 'octonote-windows-amd64.exe' },
+  '@divyo-argha/octonote-windows-arm64': { os: 'win32',  cpu: 'arm64', releaseAsset: 'octonote-windows-arm64.exe' }
 };
 
 function followRedirects(url) {
@@ -52,10 +53,28 @@ async function download(url, destPath) {
 }
 
 async function main() {
+  const hasToken = process.env.NODE_AUTH_TOKEN || process.env.NPM_TOKEN;
+  if (!hasToken) {
+    console.warn('\n⚠️  No NODE_AUTH_TOKEN or NPM_TOKEN set. Skipping npm publish.\n');
+    return;
+  }
+
   const buildDir = path.join(__dirname, '..', 'build');
-  if (!fs.existsSync(buildDir)) fs.mkdirSync(buildDir);
+  if (!fs.existsSync(buildDir)) fs.mkdirSync(buildDir, { recursive: true });
 
   const localDistDir = path.join(__dirname, '..', '..', 'dist');
+
+  // Update optionalDependencies in main package.json to match current release version
+  const mainPkgPath = path.join(__dirname, '..', 'package.json');
+  if (fs.existsSync(mainPkgPath)) {
+    const mainPkg = JSON.parse(fs.readFileSync(mainPkgPath, 'utf8'));
+    mainPkg.version = VERSION;
+    if (!mainPkg.optionalDependencies) mainPkg.optionalDependencies = {};
+    for (const pkgName of Object.keys(PACKAGES)) {
+      mainPkg.optionalDependencies[pkgName] = VERSION;
+    }
+    fs.writeFileSync(mainPkgPath, JSON.stringify(mainPkg, null, 2) + '\n');
+  }
 
   for (const [pkgName, info] of Object.entries(PACKAGES)) {
     const isWindows = info.os === 'win32';
@@ -92,18 +111,23 @@ async function main() {
       
       fs.writeFileSync(path.join(pkgDir, 'package.json'), JSON.stringify(pkgJson, null, 2));
       
-      console.log(`  Publishing ${pkgName}...`);
-      execSync('npm publish --access public', { cwd: pkgDir, stdio: 'inherit' });
+      console.log(`  Publishing ${pkgName}@${VERSION}...`);
+      try {
+        execSync('npm publish --access public', { cwd: pkgDir, stdio: 'inherit' });
+      } catch (pubErr) {
+        console.warn(`  Warning publishing ${pkgName}: ${pubErr.message}`);
+      }
     } catch (err) {
-      console.error(`  Failed for ${pkgName}: ${err.message}`);
+      console.error(`  Failed preparation for ${pkgName}: ${err.message}`);
     }
   }
   
   console.log('Publishing main wrapper package...');
   try {
     execSync('npm publish --access public', { cwd: path.join(__dirname, '..'), stdio: 'inherit' });
+    console.log('✓ Successfully published main package to npm!');
   } catch (err) {
-    console.error(`Failed to publish main package:`, err.message);
+    console.warn(`Warning publishing main package:`, err.message);
   }
 }
 

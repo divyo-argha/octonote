@@ -4,29 +4,105 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          check-latest: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Go Tests
+        run: go test -v -race ./...
+
+      - name: Verify JavaScript Syntax
+        run: |
+          node --check gui/frontend/main.js
+          node --check npm/bin/octonote.js
+          node --check npm/scripts/publish-all.js
+
+  build-cli:
+    name: Build TUI Binaries
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build All CLI Binaries
+        run: |
+          mkdir -p dist
+          VERSION="${GITHUB_REF_NAME:-v2.2.0}"
+          LDFLAGS="-s -w -X main.version=${VERSION}"
+
+          echo "Building for version: ${VERSION}"
+
+          # Linux amd64 & arm64
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "${LDFLAGS}" -o dist/octonote-linux-amd64 ./tui
+          GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "${LDFLAGS}" -o dist/octonote-linux-arm64 ./tui
+
+          # macOS amd64 & arm64
+          GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "${LDFLAGS}" -o dist/octonote-darwin-amd64 ./tui
+          GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "${LDFLAGS}" -o dist/octonote-darwin-arm64 ./tui
+
+          # Windows amd64 & arm64
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "${LDFLAGS}" -o dist/octonote-windows-amd64.exe ./tui
+          GOOS=windows GOARCH=arm64 go build -trimpath -ldflags "${LDFLAGS}" -o dist/octonote-windows-arm64.exe ./tui
+
+          # Generate SHA256 checksums
+          cd dist
+          sha256sum * > checksums.txt || shasum -a 256 * > checksums.txt
+          cd ..
+
+      - name: Upload CLI Binaries as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: octonote-cli
+          path: dist/*
+          retention-days: 1
+
   build-gui:
+    name: Build GUI (${{ matrix.build.platform }})
+    needs: test
     strategy:
       fail-fast: false
       matrix:
         build:
           - name: 'octonote-gui-linux-amd64'
             platform: 'linux/amd64'
-            os: 'ubuntu-latest'
-          - name: 'octonote-gui-windows-amd64.exe'
+            os: 'ubuntu-22.04'
+          - name: 'octonote-gui-windows-amd64'
             platform: 'windows/amd64'
             os: 'windows-latest'
-          - name: 'octonote-gui-darwin'
+          - name: 'octonote-gui-darwin-universal'
             platform: 'darwin/universal'
             os: 'macos-latest'
 
     runs-on: ${{ matrix.build.os }}
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Go
@@ -41,26 +117,60 @@ jobs:
 
       - name: Install Wails Dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential pkg-config
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev build-essential pkg-config libwebkit2gtk-4.0-dev || sudo apt-get install -y libgtk-3-dev build-essential pkg-config libwebkit2gtk-4.1-dev
 
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Build Wails App
+        shell: bash
         run: |
           cd gui
-          wails build -platform ${{ matrix.build.platform }} -clean
+          VERSION="${GITHUB_REF_NAME:-v2.2.0}"
+          WAILS_FLAGS="-platform ${{ matrix.build.platform }} -clean -ldflags -s -w -X main.version=${VERSION}"
+
+          # Linux WebKit 4.1 tag detection
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            if pkg-config --exists webkit2gtk-4.1 && ! pkg-config --exists webkit2gtk-4.0; then
+              WAILS_FLAGS="${WAILS_FLAGS} -tags webkit2_41"
+            fi
+          fi
+
+          wails build ${WAILS_FLAGS}
+          cd ..
 
       - name: Prepare GUI Binary for Release
         shell: bash
         run: |
           mkdir -p dist
-          if [ "${{ matrix.build.os }}" = "macos-latest" ]; then
-            cp gui/build/bin/octoNote.app/Contents/MacOS/octoNote dist/octonote-gui-darwin || cp gui/build/bin/octonote dist/octonote-gui-darwin
-          elif [ "${{ matrix.build.os }}" = "windows-latest" ]; then
-            cp gui/build/bin/octonote.exe dist/octonote-gui-windows.exe
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            # Find binary inside .app regardless of casing
+            APP_BIN=$(find gui/build/bin -type f -path "*/Contents/MacOS/*" | head -n 1)
+            if [ -n "$APP_BIN" ]; then
+              cp "$APP_BIN" dist/octonote-gui-darwin
+            elif [ -f gui/build/bin/octonote ]; then
+              cp gui/build/bin/octonote dist/octonote-gui-darwin
+            fi
+            # Package .app bundle as zip for macOS users
+            if [ -d "gui/build/bin/octoNote.app" ]; then
+              cd gui/build/bin && zip -r ../../../dist/octonote-gui-darwin.zip octoNote.app && cd ../../..
+            fi
+          elif [ "${{ runner.os }}" = "Windows" ]; then
+            if [ -f gui/build/bin/octonote.exe ]; then
+              cp gui/build/bin/octonote.exe dist/octonote-gui-windows.exe
+            else
+              WIN_BIN=$(find gui/build/bin -name "*.exe" | head -n 1)
+              cp "$WIN_BIN" dist/octonote-gui-windows.exe
+            fi
           else
-            cp gui/build/bin/octonote dist/octonote-gui-linux
+            if [ -f gui/build/bin/octonote ]; then
+              cp gui/build/bin/octonote dist/octonote-gui-linux
+            else
+              LINUX_BIN=$(find gui/build/bin -type f -executable | head -n 1)
+              cp "$LINUX_BIN" dist/octonote-gui-linux
+            fi
           fi
 
       - name: Upload GUI Binary as Artifact
@@ -68,40 +178,11 @@ jobs:
         with:
           name: ${{ matrix.build.name }}
           path: dist/*
+          retention-days: 1
 
-  build-cli:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-
-      - name: Build TUI Binaries
-        run: |
-          mkdir -p dist
-          # Linux amd64
-          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/octonote-linux-amd64 ./tui
-          # Linux arm64
-          GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o dist/octonote-linux-arm64 ./tui
-          # Darwin amd64
-          GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/octonote-darwin-amd64 ./tui
-          # Darwin arm64
-          GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o dist/octonote-darwin-arm64 ./tui
-          # Windows amd64
-          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/octonote-windows-amd64.exe ./tui
-
-      - name: Upload CLI Binaries as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: octonote-cli
-          path: dist/*
-
-  publish-release-and-npm:
-    needs: [build-gui, build-cli]
+  publish-release:
+    name: Create GitHub Release
+    needs: [build-cli, build-gui]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -117,8 +198,25 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-npm:
+    name: Publish to NPM Registry
+    needs: publish-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -126,14 +224,10 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Install npm dependencies
-        run: |
-          cd npm
-          npm ci
-
-      - name: Publish to NPM
+      - name: Publish All NPM Packages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           cd npm
           node scripts/publish-all.js

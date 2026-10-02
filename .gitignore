@@ -15,6 +15,10 @@ node_modules/
 npm/node_modules/
 npm/bin/binaries/
 
+# Distribution and release artifacts
+dist/
+npm/build/
+
 # OS-specific files
 .DS_Store
 Thumbs.db
