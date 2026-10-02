@@ -134,10 +134,10 @@ jobs:
         shell: bash
         run: |
           cd gui
-          WAILS_FLAGS="-platform ${{ matrix.platform }} -clean"
+          EXTRA_TAGS=""
           if [ "${{ runner.os }}" = "Linux" ]; then
             if pkg-config --exists webkit2gtk-4.1 && ! pkg-config --exists webkit2gtk-4.0; then
-              WAILS_FLAGS="${WAILS_FLAGS} -tags webkit2_41"
+              EXTRA_TAGS="-tags webkit2_41"
             fi
           fi
-          wails build ${WAILS_FLAGS}
+          wails build -platform "${{ matrix.platform }}" -clean ${EXTRA_TAGS}

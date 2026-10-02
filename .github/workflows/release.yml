@@ -129,16 +129,16 @@ jobs:
         run: |
           cd gui
           VERSION="${GITHUB_REF_NAME:-v2.2.0}"
-          WAILS_FLAGS="-platform ${{ matrix.build.platform }} -clean -ldflags -s -w -X main.version=${VERSION}"
+          EXTRA_TAGS=""
 
           # Linux WebKit 4.1 tag detection
           if [ "${{ runner.os }}" = "Linux" ]; then
             if pkg-config --exists webkit2gtk-4.1 && ! pkg-config --exists webkit2gtk-4.0; then
-              WAILS_FLAGS="${WAILS_FLAGS} -tags webkit2_41"
+              EXTRA_TAGS="-tags webkit2_41"
             fi
           fi
 
-          wails build ${WAILS_FLAGS}
+          wails build -platform "${{ matrix.build.platform }}" -clean -ldflags "-s -w -X main.version=${VERSION}" ${EXTRA_TAGS}
           cd ..
 
       - name: Prepare GUI Binary for Release
