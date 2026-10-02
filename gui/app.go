@@ -293,7 +293,7 @@ func (a *App) GetSystemInfo() map[string]interface{} {
 		"storageDir":    dir,
 		"stateFileSize": stateSize,
 		"tabCount":      tabCount,
-		"buildVersion":  "2.1.0",
+		"buildVersion":  "2.2.0",
 	}
 }
 

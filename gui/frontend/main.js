@@ -147,25 +147,84 @@ function applySettings() {
 // ── Init & State Sync ─────────────────────────────────────────────────────────
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Detect macOS for traffic lights padding
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0 ||
+                (navigator.userAgent && navigator.userAgent.includes('Macintosh'));
+  if (isMac) {
+    document.body.classList.add('platform-mac');
+  }
+
   applySettings();
   setupEventListeners();
-  loadStateFromBackend();
-
-  // Listen to state changes from Wails backend
-  if (window.runtime) {
-    window.runtime.EventsOn('state:changed', (newState) => {
-      if (!newState || !newState.tabs) return;
-      const currentActive = state.active_index;
-      state = newState;
-      if (currentActive >= 0 && currentActive < state.tabs.length) {
-        state.active_index = currentActive;
-      }
-      renderTabs();
-      renderSidebarNotes();
-      updateEditorContent();
-    });
-  }
+  initBackendConnection();
 });
+
+let isBackendInitialized = false;
+
+function initBackendConnection() {
+  let attempts = 0;
+  const maxAttempts = 60; // Try for up to 3 seconds
+
+  const checkAndLoad = async () => {
+    if (window.go && window.go.main && window.go.main.App) {
+      isBackendInitialized = true;
+      try {
+        state = await window.go.main.App.GetState();
+        renderTabs();
+        renderSidebarNotes();
+        updateEditorContent();
+      } catch (err) {
+        console.error('Failed to load state from backend:', err);
+      }
+
+      // Attach runtime event listeners once runtime is available
+      if (window.runtime && !window.__octonote_events_attached) {
+        window.__octonote_events_attached = true;
+        window.runtime.EventsOn('state:changed', (newState) => {
+          if (!newState || !newState.tabs) return;
+          const currentActive = state.active_index;
+          state = newState;
+          if (currentActive >= 0 && currentActive < state.tabs.length) {
+            state.active_index = currentActive;
+          }
+          renderTabs();
+          renderSidebarNotes();
+          updateEditorContent();
+        });
+      }
+      return;
+    }
+
+    attempts++;
+    if (attempts < maxAttempts) {
+      setTimeout(checkAndLoad, 50);
+    } else {
+      // Standalone / browser preview fallback
+      if (!isBackendInitialized && (!state.tabs || state.tabs.length === 0)) {
+        console.warn('octoNote backend not detected, initializing local session');
+        state = {
+          version: 2,
+          active_index: 0,
+          tabs: [
+            {
+              id: '1',
+              title: 'scratch',
+              body: '# Welcome to octoNote ✦\n\nLightning-fast, crash-proof, multi-tab scratchpad.\nEverything saved. Nothing lost.\n\n- Press Ctrl+N to create a new tab\n- Press Ctrl+M to toggle Markdown preview\n- Press Ctrl+P for Command Palette\n',
+              cursor_line: 0,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+          ]
+        };
+        renderTabs();
+        renderSidebarNotes();
+        updateEditorContent();
+      }
+    }
+  };
+
+  checkAndLoad();
+}
 
 async function loadStateFromBackend() {
   if (window.go && window.go.main && window.go.main.App) {
@@ -240,6 +299,29 @@ function setupEventListeners() {
   document.getElementById('btn-save-disk')?.addEventListener('click', saveActiveNoteToDisk);
   btnPreview.addEventListener('click', togglePreview);
   btnZen.addEventListener('click', toggleZenMode);
+
+  // Interactive Task List Toggle in Preview
+  previewPane.addEventListener('click', (e) => {
+    if (e.target && e.target.classList.contains('task-checkbox')) {
+      const lineIdx = parseInt(e.target.getAttribute('data-line'), 10);
+      if (!isNaN(lineIdx)) {
+        const lines = editor.value.split('\n');
+        if (lineIdx >= 0 && lineIdx < lines.length) {
+          if (lines[lineIdx].includes('- [ ]')) {
+            lines[lineIdx] = lines[lineIdx].replace('- [ ]', '- [x]');
+          } else if (lines[lineIdx].includes('- [x]')) {
+            lines[lineIdx] = lines[lineIdx].replace('- [x]', '- [ ]');
+          } else if (lines[lineIdx].includes('* [ ]')) {
+            lines[lineIdx] = lines[lineIdx].replace('* [ ]', '* [x]');
+          } else if (lines[lineIdx].includes('* [x]')) {
+            lines[lineIdx] = lines[lineIdx].replace('* [x]', '* [ ]');
+          }
+          editor.value = lines.join('\n');
+          handleEditorInput();
+        }
+      }
+    }
+  });
 
   // Window Controls
   if (btnMinimize) btnMinimize.addEventListener('click', () => window.runtime?.WindowMinimise());
@@ -1000,33 +1082,261 @@ function togglePreview() {
   isPreviewOpen = !isPreviewOpen;
   previewPane.hidden = !isPreviewOpen;
   btnPreview.setAttribute('aria-pressed', isPreviewOpen ? 'true' : 'false');
-  if (isPreviewOpen) renderMarkdownPreview();
+  if (isPreviewOpen) {
+    renderMarkdownPreview();
+    syncEditorScroll();
+  }
 }
 
 function renderMarkdownPreview() {
-  const text = editor.value;
-  let html = text
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    // Headers
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    // Bold & Italic
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    // Code blocks
-    .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-    // Inline code
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // Task lists
-    .replace(/^- \[ \] (.*$)/gim, '<p>⏹ $1</p>')
-    .replace(/^- \[x\] (.*$)/gim, '<p>✅ $1</p>')
-    // Blockquotes
-    .replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>')
-    // Paragraphs
-    .replace(/\n\n/g, '</p><p>');
+  const currentScrollTop = previewPane.scrollTop;
+  previewPane.innerHTML = parseMarkdownToHTML(editor.value);
+  previewPane.scrollTop = currentScrollTop;
+}
 
-  previewPane.innerHTML = `<p>${html}</p>`;
+function parseMarkdownToHTML(text) {
+  if (!text) return '<p class="preview-empty" style="color:var(--col-text-muted);font-style:italic;">Nothing to preview yet…</p>';
+
+  // 1. Separate fenced code blocks (```lang ... ```)
+  const codeBlocks = [];
+  let processed = text.replace(/```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)```/g, (match, lang, code) => {
+    const placeholder = `§§CODEBLOCK_${codeBlocks.length}§§`;
+    codeBlocks.push({ lang: lang || 'text', code });
+    return placeholder;
+  });
+
+  // 2. Separate inline codes (`code`)
+  const inlineCodes = [];
+  processed = processed.replace(/`([^`\n]+)`/g, (match, code) => {
+    const placeholder = `§§INLINECODE_${inlineCodes.length}§§`;
+    inlineCodes.push(code);
+    return placeholder;
+  });
+
+  // 3. Process lines
+  const rawLines = processed.split(/\r?\n/);
+  const output = [];
+  let inList = false;
+  let listType = ''; // 'ul' or 'ol' or 'task'
+  let inTable = false;
+  let inBlockquote = false;
+  let currentParagraph = [];
+
+  const flushParagraph = () => {
+    if (currentParagraph.length > 0) {
+      output.push(`<p>${currentParagraph.map(formatInline).join('<br />')}</p>`);
+      currentParagraph = [];
+    }
+  };
+
+  const closeList = () => {
+    if (inList) {
+      output.push(listType === 'task' ? '</ul>' : `</${listType}>`);
+      inList = false;
+      listType = '';
+    }
+  };
+
+  const closeTable = () => {
+    if (inTable) {
+      output.push('</tbody></table>');
+      inTable = false;
+    }
+  };
+
+  const closeBlockquote = () => {
+    if (inBlockquote) {
+      output.push('</blockquote>');
+      inBlockquote = false;
+    }
+  };
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+    const trimmed = line.trim();
+
+    // Empty line ends current paragraph / block
+    if (!trimmed) {
+      flushParagraph();
+      closeList();
+      closeTable();
+      closeBlockquote();
+      continue;
+    }
+
+    // Code block placeholder
+    if (trimmed.startsWith('§§CODEBLOCK_')) {
+      flushParagraph();
+      closeList();
+      closeTable();
+      closeBlockquote();
+      output.push(trimmed);
+      continue;
+    }
+
+    // Horizontal Rule (---, ***, ___)
+    if (/^(\*{3,}|-{3,}|_{3,})$/.test(trimmed)) {
+      flushParagraph();
+      closeList();
+      closeTable();
+      closeBlockquote();
+      output.push('<hr />');
+      continue;
+    }
+
+    // Table rows (| col1 | col2 |)
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      flushParagraph();
+      closeList();
+      closeBlockquote();
+
+      const cells = trimmed.slice(1, -1).split('|').map(c => c.trim());
+      const isSep = cells.every(c => /^:?-+:?$/.test(c));
+      if (isSep) {
+        continue;
+      }
+
+      if (!inTable) {
+        inTable = true;
+        output.push('<table><thead><tr>');
+        cells.forEach(c => output.push(`<th>${formatInline(c)}</th>`));
+        output.push('</tr></thead><tbody>');
+      } else {
+        output.push('<tr>');
+        cells.forEach(c => output.push(`<td>${formatInline(c)}</td>`));
+        output.push('</tr>');
+      }
+      continue;
+    } else {
+      closeTable();
+    }
+
+    // Blockquote (> quote)
+    if (trimmed.startsWith('&gt;') || trimmed.startsWith('>')) {
+      flushParagraph();
+      closeList();
+      closeTable();
+      const quoteText = trimmed.replace(/^(&gt;|>)\s?/, '');
+      if (!inBlockquote) {
+        output.push('<blockquote>');
+        inBlockquote = true;
+      }
+      output.push(`<p>${formatInline(quoteText)}</p>`);
+      continue;
+    } else {
+      closeBlockquote();
+    }
+
+    // Headers (# to ######)
+    const headerMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headerMatch) {
+      flushParagraph();
+      closeList();
+      closeTable();
+      closeBlockquote();
+      const level = headerMatch[1].length;
+      const title = headerMatch[2];
+      output.push(`<h${level}>${formatInline(title)}</h${level}>`);
+      continue;
+    }
+
+    // Task list items (- [ ] / - [x])
+    const taskMatch = trimmed.match(/^[-*]\s+\[([ xX])\]\s+(.*)$/);
+    if (taskMatch) {
+      flushParagraph();
+      closeTable();
+      closeBlockquote();
+      if (!inList || listType !== 'task') {
+        closeList();
+        output.push('<ul class="task-list">');
+        inList = true;
+        listType = 'task';
+      }
+      const checked = taskMatch[1].toLowerCase() === 'x';
+      const text = taskMatch[2];
+      output.push(
+        `<li class="task-item"><input type="checkbox" class="task-checkbox" data-line="${i}" ${checked ? 'checked' : ''} /><span class="${checked ? 'task-done' : ''}">${formatInline(text)}</span></li>`
+      );
+      continue;
+    }
+
+    // Unordered List (- item, * item, + item)
+    const ulMatch = trimmed.match(/^[-*+]\s+(.*)$/);
+    if (ulMatch) {
+      flushParagraph();
+      closeTable();
+      closeBlockquote();
+      if (!inList || listType !== 'ul') {
+        closeList();
+        output.push('<ul>');
+        inList = true;
+        listType = 'ul';
+      }
+      output.push(`<li>${formatInline(ulMatch[1])}</li>`);
+      continue;
+    }
+
+    // Ordered List (1. item)
+    const olMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+    if (olMatch) {
+      flushParagraph();
+      closeTable();
+      closeBlockquote();
+      if (!inList || listType !== 'ol') {
+        closeList();
+        output.push('<ol>');
+        inList = true;
+        listType = 'ol';
+      }
+      output.push(`<li>${formatInline(olMatch[2])}</li>`);
+      continue;
+    }
+
+    // Regular line inside paragraph — lines within same block are joined with <br />
+    closeList();
+    closeTable();
+    closeBlockquote();
+    currentParagraph.push(trimmed);
+  }
+
+  flushParagraph();
+  closeList();
+  closeTable();
+  closeBlockquote();
+
+  let html = output.join('\n');
+
+  // Re-insert code blocks with safe HTML and language tags
+  codeBlocks.forEach((cb, idx) => {
+    const escapedCode = escapeHtml(cb.code.trim());
+    const replacement = `<pre class="code-block"><div class="code-header"><span class="code-lang">${escapeHtml(cb.lang)}</span></div><code>${escapedCode}</code></pre>`;
+    html = html.replace(`§§CODEBLOCK_${idx}§§`, replacement);
+  });
+
+  // Re-insert inline codes
+  inlineCodes.forEach((ic, idx) => {
+    const escaped = escapeHtml(ic);
+    html = html.replace(`§§INLINECODE_${idx}§§`, `<code>${escaped}</code>`);
+  });
+
+  return html;
+}
+
+function formatInline(str) {
+  if (!str) return '';
+  return str
+    // Images: ![alt](url)
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" loading="lazy" />')
+    // Links: [text](url)
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    // Bold: **text** or __text__
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/__(.*?)__/g, '<strong>$1</strong>')
+    // Strikethrough: ~~text~~
+    .replace(/~~(.*?)~~/g, '<del>$1</del>')
+    // Italic: *text* or _text_
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/_([^_]+)_/g, '<em>$1</em>');
 }
 
 // ── Zen / Distraction-Free Mode ───────────────────────────────────────────────

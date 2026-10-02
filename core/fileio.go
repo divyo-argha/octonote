@@ -34,9 +34,13 @@ func validatePath(path string) (string, error) {
 	// filepath.Clean removes ".." sequences and normalises separators.
 	path = filepath.Clean(path)
 
-	// The path must now be absolute.
+	// Ensure path is absolute, resolving relative paths against working directory
 	if !filepath.IsAbs(path) {
-		return "", fmt.Errorf("path must be absolute (got %q)", path)
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		} else {
+			return "", fmt.Errorf("path must be absolute (got %q)", path)
+		}
 	}
 
 	// Check for rejected path prefixes.
@@ -112,8 +116,14 @@ func SaveFile(path, content string) error {
 	}
 
 	if err := os.Rename(tmp, safe); err != nil {
+		_ = os.Remove(safe)
+		if err2 := os.Rename(tmp, safe); err2 != nil {
+			if writeErr := os.WriteFile(safe, []byte(content), 0o644); writeErr != nil {
+				_ = os.Remove(tmp)
+				return fmt.Errorf("save: rename to %s: %w", safe, err)
+			}
+		}
 		_ = os.Remove(tmp)
-		return fmt.Errorf("save: rename to %s: %w", safe, err)
 	}
 	return nil
 }

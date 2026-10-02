@@ -1,6 +1,6 @@
 module github.com/nottaker/octonote
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/charmbracelet/bubbles v0.18.0
@@ -10,6 +10,7 @@ require (
 	github.com/psanford/wormhole-william v1.0.8
 	github.com/wailsapp/wails/v2 v2.13.0
 	golang.org/x/crypto v0.51.0
+	golang.org/x/term v0.46.0
 )
 
 require (
@@ -60,7 +61,7 @@ require (
 	golang.org/x/image v0.40.0 // indirect
 	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 	nhooyr.io/websocket v1.8.17 // indirect
 	salsa.debian.org/vasudev/gospake2 v0.0.0-20210510093858-d91629950ad1 // indirect

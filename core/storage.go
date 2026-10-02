@@ -233,8 +233,15 @@ func (s *Storage) atomicWrite(st State) {
 	s.mu.Unlock()
 
 	if err := os.Rename(tmp, s.file); err != nil {
-		s.setErr(err)
-		return
+		_ = os.Remove(s.file)
+		if err2 := os.Rename(tmp, s.file); err2 != nil {
+			if writeErr := os.WriteFile(s.file, data, 0o600); writeErr != nil {
+				_ = os.Remove(tmp)
+				s.setErr(writeErr)
+				return
+			}
+		}
+		_ = os.Remove(tmp)
 	}
 
 	// Capture the file's exact modTime to avoid reload loops from our own writes.

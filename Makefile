@@ -4,7 +4,7 @@
 BINARY_NAME   := octonote
 GUI_BINARY    := octonote-gui
 MODULE        := github.com/nottaker/octonote
-VERSION       := 2.1.0
+VERSION       := 2.2.0
 LDFLAGS       := -s -w -X main.version=$(VERSION)
 
 # Directories
@@ -18,7 +18,8 @@ PLATFORMS := \
 	darwin/arm64 \
 	linux/amd64  \
 	linux/arm64  \
-	windows/amd64
+	windows/amd64 \
+	windows/arm64
 
 # Wails path helper
 WAILS := $(shell which wails 2>/dev/null || echo $(shell go env GOPATH)/bin/wails)
@@ -38,7 +39,16 @@ tui: deps
 gui: deps
 	@echo "→ Building Wails GUI…"
 	cd $(GUI_DIR) && $(WAILS) build -clean -ldflags "$(LDFLAGS)"
-	@echo "✓ Wails build complete. Output: gui/build/bin/"
+	@if [ -d "$(GUI_DIR)/build/bin/octoNote.app" ]; then \
+		echo "#!/bin/sh" > $(GUI_BINARY) ; \
+		echo "DIR=\"\$$(cd \"\$$(dirname \"\$$0\")\" && pwd)\"" >> $(GUI_BINARY) ; \
+		echo "exec \"\$$DIR/$(GUI_DIR)/build/bin/octoNote.app/Contents/MacOS/octonote\" \"\$$@\"" >> $(GUI_BINARY) ; \
+		chmod +x $(GUI_BINARY) ; \
+	elif [ -f "$(GUI_DIR)/build/bin/octonote" ]; then \
+		cp "$(GUI_DIR)/build/bin/octonote" $(GUI_BINARY) ; \
+		chmod +x $(GUI_BINARY) ; \
+	fi
+	@echo "✓ Wails build complete. Created ./$(GUI_BINARY) and $(GUI_DIR)/build/bin/"
 
 ## Run the TUI in development mode (live reload via air, if installed)
 dev-tui:

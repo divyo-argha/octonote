@@ -15,6 +15,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 func main() {
@@ -114,4 +115,10 @@ func (a *App) shutdown(_ context.Context) {
 }
 
 func (a *App) onSecondInstanceLaunch(_ options.SecondInstanceData) {
+	if a.ctx != nil {
+		wruntime.WindowUnminimise(a.ctx)
+		wruntime.WindowShow(a.ctx)
+		wruntime.WindowSetAlwaysOnTop(a.ctx, true)
+		wruntime.WindowSetAlwaysOnTop(a.ctx, false)
+	}
 }

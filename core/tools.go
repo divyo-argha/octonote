@@ -47,7 +47,7 @@ func TransformCase(input string, targetCase string) string {
 	case "lower":
 		return strings.ToLower(input)
 	case "title":
-		return strings.Title(strings.ToLower(input))
+		return toTitleCase(input)
 	case "camel":
 		return toCamelCase(input)
 	case "snake":
@@ -98,7 +98,7 @@ func GetTemplate(name string) string {
 	case "table":
 		return "| Feature | Status | Priority |\n| :--- | :---: | ---: |\n| Auto-Save | ✅ Done | High |\n| P2P Sharing | ✅ Done | High |\n| Themes | ✅ Active | Medium |\n"
 	case "json":
-		return "{\n  \"appName\": \"octoNote\",\n  \"version\": \"2.1.0\",\n  \"features\": [\n    \"Multi-tab\",\n    \"Auto-save\",\n    \"AES-256 Encryption\",\n    \"P2P Share\"\n  ],\n  \"active\": true\n}"
+		return "{\n  \"appName\": \"octoNote\",\n  \"version\": \"2.2.0\",\n  \"features\": [\n    \"Multi-tab\",\n    \"Auto-save\",\n    \"AES-256 Encryption\",\n    \"P2P Share\"\n  ],\n  \"active\": true\n}"
 	case "bug":
 		return "# 🐛 Bug Report\n\n### Description\n\n### Steps to Reproduce\n1. \n2. \n3. \n\n### Expected Behavior\n\n### Actual Behavior\n\n### System Info\n- OS: \n- Version: \n"
 	default:
@@ -139,6 +139,23 @@ func getWords(s string) []string {
 	return words
 }
 
+func capitalizeWord(w string) string {
+	r := []rune(strings.ToLower(w))
+	if len(r) == 0 {
+		return ""
+	}
+	r[0] = unicode.ToTitle(r[0])
+	return string(r)
+}
+
+func toTitleCase(s string) string {
+	words := strings.Fields(s)
+	for i, w := range words {
+		words[i] = capitalizeWord(w)
+	}
+	return strings.Join(words, " ")
+}
+
 func toCamelCase(s string) string {
 	words := getWords(s)
 	if len(words) == 0 {
@@ -148,7 +165,7 @@ func toCamelCase(s string) string {
 		if i == 0 {
 			words[i] = strings.ToLower(w)
 		} else {
-			words[i] = strings.Title(strings.ToLower(w))
+			words[i] = capitalizeWord(w)
 		}
 	}
 	return strings.Join(words, "")
